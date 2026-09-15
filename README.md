@@ -22,8 +22,7 @@ All commands start with `/6b6tmap`:
 - `/6b6tmap toggle` &mdash; Enable or disable chunk scanning
 - `/6b6tmap status` &mdash; Print current network stats, queue size, and connection info
 - `/6b6tmap server <url>` &mdash; Set the map upload server URL (e.g. `http://map.6b6t.store/api/chunks/submit`)
-- `/6b6tmap player <name>` &mdash; Set the player name attached to uploaded chunks
-- `/6b6tmap token <token>` &mdash; Set the authentication token for uploading chunks
+- `/6b6tmap token <token>` &mdash; Set upload authentication token (optional; only needed if server requires auth)
 - `/6b6tmap area spawn [radius]` &mdash; Restrict scanning within spawn radius (default: 5000 blocks)
 - `/6b6tmap area world` &mdash; Allow scanning anywhere across the world
 - `/6b6tmap resetcache` &mdash; Clear session cache of already-uploaded chunks
