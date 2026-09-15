@@ -32,10 +32,6 @@ loom {
             setConfigName("Client ${project.minecraft_version}")
             ideConfigGenerated(true)
             runDir("run")
-            vmArg("-Djava.net.preferIPv4Stack=true")
-            vmArg("-Dsun.net.spi.nameservice.nameservers=1.1.1.1,8.8.8.8")
-            vmArg("-Dsun.net.spi.nameservice.provider.1=dns,sun")
-            programArgs("--username", "livemaptest1234", "--uuid", "14d8a3e9-4b7e-3aab-8e0b-a1b4c132eeb8", "--accessToken", "0", "--userType", "legacy")
         }
     }
 }

@@ -3,7 +3,7 @@
   "id": "map6b6t",
   "version": "${version}",
   "name": "6b6t Spawn Map",
-  "description": "Scans chunk air-facing surface blocks around 6b6t spawn and uploads them for the web visualizer.",
+  "description": "Scans loaded chunk blocks around 6b6t spawn and uploads them for the web visualizer.",
   "authors": ["6b6t Community"],
   "contact": {
     "homepage": "https://play.6b6t.org"
