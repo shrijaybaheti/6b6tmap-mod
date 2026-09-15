@@ -31,11 +31,50 @@ final class ChunkUploader {
 
     UploadResult sendSingle(ChunkSubmission job) {
         String url = ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl);
+        if (job.preEncodedGzip != null) {
+            return sendGzipDirect(url, job.preEncodedGzip);
+        }
         return send(url, encodeSingle(job));
     }
 
     UploadResult sendBatch(List<ChunkSubmission> jobs) {
         return send(batchUrl(ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl)), encodeBatch(jobs));
+    }
+
+    private UploadResult sendGzipDirect(String url, byte[] gzipBytes) {
+        try {
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(REQUEST_TIMEOUT)
+                    .header("Content-Type", "application/json")
+                    .header("Content-Encoding", "gzip")
+                    .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(gzipBytes));
+            String token = ConfigManager.get().submitToken;
+            if (token != null && !token.isBlank()) {
+                builder.header(Protocol.TOKEN_HEADER, token.trim());
+            }
+
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            int status = response.statusCode();
+            if (status >= 200 && status < 300) {
+                List<UploadResult.Item> items = parseBatchItems(response.body());
+                if (items != null) {
+                    return UploadResult.mixed(gzipBytes.length, items);
+                }
+                return UploadResult.ok(gzipBytes.length);
+            }
+            String err = "HTTP " + status;
+            if (response.body() != null && !response.body().isBlank()) {
+                err = err + " " + response.body();
+            }
+            return UploadResult.http(status, gzipBytes.length, err, RetryPolicy.parseRetryAfter(response.headers().firstValue("Retry-After").orElse(null)));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return UploadResult.network(e);
+        } catch (Exception e) {
+            return UploadResult.network(e);
+        }
     }
 
     private UploadResult send(String url, byte[] jsonBytes) {
@@ -128,7 +167,7 @@ final class ChunkUploader {
         return submitUrl;
     }
 
-    private static byte[] encodeSingle(ChunkSubmission job) {
+    static byte[] encodeSingle(ChunkSubmission job) {
         StringBuilder sb = new StringBuilder(64 + job.blocks.size() * 48);
         appendEnvelopeStart(sb, job);
         appendBlocks(sb, job.blocks);
@@ -191,7 +230,7 @@ final class ChunkUploader {
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    private static byte[] gzip(byte[] input) throws IOException {
+    static byte[] gzip(byte[] input) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, input.length / 4));
         try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
             gzip.write(input);

@@ -20,12 +20,15 @@ public final class UploadService {
     private static final int WORKERS = 6;
     private static final long STATS_EVERY_MS = 15_000L;
 
+    private static final int SCAN_WORKERS = Math.max(4, Math.min(8, Runtime.getRuntime().availableProcessors()));
+
     private final UploadQueue queue = new UploadQueue();
     private final NetworkStats stats = new NetworkStats();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean batchEnabled = new AtomicBoolean(true);
 
     private ExecutorService workers;
+    private ExecutorService scanExecutor;
     private Thread statsThread;
     private HttpClient httpClient;
     private volatile UploadListener uploadListener;
@@ -42,6 +45,7 @@ public final class UploadService {
         batchEnabled.set(true);
         ThreadFactory factory = new WorkerFactory();
         workers = Executors.newFixedThreadPool(WORKERS, factory);
+        scanExecutor = Executors.newFixedThreadPool(SCAN_WORKERS, new ScanWorkerFactory());
         httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(15))
@@ -53,12 +57,20 @@ public final class UploadService {
         statsThread = new Thread(this::statsLoop, "6b6tmap-net-stats");
         statsThread.setDaemon(true);
         statsThread.start();
-        LOGGER.info("Upload service started (workers={}, queueCap={})", WORKERS, UploadQueue.CAPACITY);
+        LOGGER.info("Upload service started (workers={}, scanWorkers={}, queueCap={})", WORKERS, SCAN_WORKERS, UploadQueue.CAPACITY);
     }
 
     public synchronized void shutdown() {
         if (!running.compareAndSet(true, false)) {
             return;
+        }
+        if (scanExecutor != null) {
+            scanExecutor.shutdownNow();
+            try {
+                scanExecutor.awaitTermination(1500, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         if (workers != null) {
             workers.shutdownNow();
@@ -74,6 +86,67 @@ public final class UploadService {
         LOGGER.info("Upload service stopped ({})", stats.snapshot());
     }
 
+    public void submitAsyncScan(
+            String dimension,
+            int chunkX,
+            int chunkZ,
+            String playerName,
+            String serverVersion,
+            net.minecraft.world.chunk.ChunkSection[] sections,
+            int bottomY,
+            java.util.function.BiConsumer<Long, Integer> onHashComputed
+    ) {
+        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
+            return;
+        }
+        scanExecutor.execute(() -> {
+            try {
+                List<ScannedBlock> scannedBlocks = net.map6b6t.scanner.ChunkScanner.scanChunkSections(sections, bottomY);
+                if (scannedBlocks == null || scannedBlocks.isEmpty()) {
+                    return;
+                }
+                int payloadHash = ChunkSubmission.contentHash(scannedBlocks);
+                long chunkKey = net.minecraft.util.math.ChunkPos.toLong(chunkX, chunkZ);
+                if (onHashComputed != null) {
+                    onHashComputed.accept(chunkKey, payloadHash);
+                }
+
+                ChunkSubmission job = new ChunkSubmission(
+                        dimension,
+                        chunkX,
+                        chunkZ,
+                        playerName,
+                        serverVersion,
+                        scannedBlocks,
+                        payloadHash
+                );
+
+                byte[] encodedGzip = null;
+                try {
+                    byte[] rawJson = ChunkUploader.encodeSingle(job);
+                    encodedGzip = ChunkUploader.gzip(rawJson);
+                } catch (Exception ignored) {
+                }
+
+                ChunkSubmission finalizedJob = encodedGzip != null
+                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, scannedBlocks, payloadHash, encodedGzip)
+                        : job;
+
+                UploadQueue.OfferResult result = queue.offer(finalizedJob);
+                switch (result) {
+                    case DEDUPLICATED -> stats.markDeduplicated();
+                    case REPLACED -> stats.markReplaced();
+                    default -> {
+                    }
+                }
+                stats.setQueueSize(queue.size());
+                stats.setUploading(queue.uploadingCount());
+            } catch (Exception e) {
+                LOGGER.warn("Async chunk scan failed for {},{}: {}", chunkX, chunkZ, e.toString());
+            }
+        });
+    }
+
     public UploadQueue.OfferResult submit(
             String dimension,
             int chunkX,
@@ -85,6 +158,14 @@ public final class UploadService {
         if (!running.get() || blocks == null || blocks.isEmpty()) {
             return UploadQueue.OfferResult.REJECTED;
         }
+        int payloadHash = ChunkSubmission.contentHash(blocks);
+        byte[] encodedGzip = null;
+        try {
+            ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
+            byte[] rawJson = ChunkUploader.encodeSingle(temp);
+            encodedGzip = ChunkUploader.gzip(rawJson);
+        } catch (Exception ignored) {
+        }
         ChunkSubmission job = new ChunkSubmission(
                 dimension,
                 chunkX,
@@ -92,7 +173,8 @@ public final class UploadService {
                 playerName,
                 serverVersion,
                 blocks,
-                ChunkSubmission.contentHash(blocks)
+                payloadHash,
+                encodedGzip
         );
         UploadQueue.OfferResult result = queue.offer(job);
         switch (result) {
@@ -169,6 +251,17 @@ public final class UploadService {
         @Override
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r, "6b6tmap-upload-" + n.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        }
+    }
+
+    private static final class ScanWorkerFactory implements ThreadFactory {
+        private final AtomicInteger n = new AtomicInteger();
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, "6b6tmap-scan-" + n.incrementAndGet());
             t.setDaemon(true);
             return t;
         }

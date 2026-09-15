@@ -26,9 +26,14 @@ public class ChunkScanner {
     }
 
     public static List<ScannedBlock> scanChunk(WorldChunk chunk) {
+        return scanChunkSections(chunk.getSectionArray(), chunk.getBottomY());
+    }
+
+    public static List<ScannedBlock> scanChunkSections(ChunkSection[] sections, int bottomY) {
         List<ScannedBlock> list = new ArrayList<>(4096);
-        ChunkSection[] sections = chunk.getSectionArray();
-        int bottomY = chunk.getBottomY();
+        if (sections == null) {
+            return list;
+        }
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
             ChunkSection section = sections[sectionIndex];

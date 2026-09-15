@@ -254,23 +254,19 @@ public class SpawnMapMod implements ClientModInitializer {
 
             WorldChunk chunk = world.getChunk(target.x, target.z);
             if (chunk != null) {
-                List<ScannedBlock> scannedBlocks = ChunkScanner.scanChunk(chunk);
                 lastScanTick.put(key, tickCounter);
-
-                if (!scannedBlocks.isEmpty()) {
-                    int payloadHash = net.map6b6t.network.ChunkSubmission.contentHash(scannedBlocks);
-                    Integer lastHash = lastSeenHash.get(key);
-                    if (lastHash == null || lastHash != payloadHash) {
-                        UploadQueue.OfferResult offer = UploadService.get().submit(
-                                dimension, target.x, target.z, playerName, serverVer, scannedBlocks
-                        );
-                        if (offer == UploadQueue.OfferResult.FULL) {
-                            queuedChunkKeys.add(key);
-                            scanQueue.addFirst(target);
-                            break;
-                        }
-                    }
-                }
+                net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
+                int bottomY = chunk.getBottomY();
+                UploadService.get().submitAsyncScan(
+                        dimension,
+                        target.x,
+                        target.z,
+                        playerName,
+                        serverVer,
+                        sections,
+                        bottomY,
+                        lastSeenHash::put
+                );
             }
             processedThisTick++;
             if (System.nanoTime() - tickStartTime > budgetNanos) {
