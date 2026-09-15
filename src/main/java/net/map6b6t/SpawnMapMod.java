@@ -40,6 +40,19 @@ public class SpawnMapMod implements ClientModInitializer {
     private int tickCounter = 0;
     private ClientWorld lastWorld = null;
 
+    public static Text createText(String str) {
+        try {
+            return (Text) Text.class.getMethod("literal", String.class).invoke(null, str);
+        } catch (Exception e) {
+            try {
+                Class<?> literalTextClass = Class.forName("net.minecraft.text.LiteralText");
+                return (Text) literalTextClass.getConstructor(String.class).newInstance(str);
+            } catch (Exception ex) {
+                return Text.of(str);
+            }
+        }
+    }
+
     private void resetSessionCache() {
         lastSeenHash.clear();
         lastScanTick.clear();
@@ -65,7 +78,7 @@ public class SpawnMapMod implements ClientModInitializer {
                         ModConfig config = ConfigManager.get();
                         config.enabled = !config.enabled;
                         ConfigManager.save();
-                        context.getSource().sendFeedback(Text.literal("6b6t Map " + (config.enabled ? "enabled" : "disabled")).formatted(Formatting.AQUA));
+                        context.getSource().sendFeedback(createText("6b6t Map " + (config.enabled ? "enabled" : "disabled")).copy().formatted(Formatting.AQUA));
                         return 1;
                     })
                 )
@@ -73,20 +86,20 @@ public class SpawnMapMod implements ClientModInitializer {
                     .executes(context -> {
                         ModConfig config = ConfigManager.get();
                         NetworkStats stats = UploadService.get().stats();
-                        context.getSource().sendFeedback(Text.literal("Status: " + (config.enabled ? "ACTIVE" : "INACTIVE")
+                        context.getSource().sendFeedback(createText("Status: " + (config.enabled ? "ACTIVE" : "INACTIVE")
                                 + " | " + stats.snapshot()
                                 + " | ScanQ: " + scanQueue.size()
                                 + " | Tracked: " + lastSeenHash.size()
                                 + " | Area: " + config.formatBounds()
                                 + " | URL: " + config.serverUrl
-                                + (stats.lastError().isBlank() ? "" : " | Err: " + stats.lastError())).formatted(Formatting.GREEN));
+                                + (stats.lastError().isBlank() ? "" : " | Err: " + stats.lastError())).copy().formatted(Formatting.GREEN));
                         return 1;
                     })
                 )
                 .then(ClientCommandManager.literal("resetcache")
                     .executes(context -> {
                         resetSessionCache();
-                        context.getSource().sendFeedback(Text.literal("Cleared scanned chunk session cache.").formatted(Formatting.YELLOW));
+                        context.getSource().sendFeedback(createText("Cleared scanned chunk session cache.").copy().formatted(Formatting.YELLOW));
                         return 1;
                     })
                 )
@@ -95,13 +108,13 @@ public class SpawnMapMod implements ClientModInitializer {
                         .executes(context -> {
                             String url = ModConfig.sanitizeServerUrl(StringArgumentType.getString(context, "url"));
                             if (url.isEmpty() || !(url.startsWith("http://") || url.startsWith("https://"))) {
-                                context.getSource().sendFeedback(Text.literal("URL must start with http:// or https://").formatted(Formatting.RED));
+                                context.getSource().sendFeedback(createText("URL must start with http:// or https://").copy().formatted(Formatting.RED));
                                 return 0;
                             }
                             ModConfig config = ConfigManager.get();
                             config.serverUrl = url;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(Text.literal("Server URL updated to: " + url).formatted(Formatting.AQUA));
+                            context.getSource().sendFeedback(createText("Server URL updated to: " + url).copy().formatted(Formatting.AQUA));
                             return 1;
                         })
                     )
@@ -113,7 +126,7 @@ public class SpawnMapMod implements ClientModInitializer {
                             ModConfig config = ConfigManager.get();
                             config.playerOverride = name;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(Text.literal("Player name set to: " + name).formatted(Formatting.AQUA));
+                            context.getSource().sendFeedback(createText("Player name set to: " + name).copy().formatted(Formatting.AQUA));
                             return 1;
                         })
                     )
@@ -125,7 +138,7 @@ public class SpawnMapMod implements ClientModInitializer {
                             ModConfig config = ConfigManager.get();
                             config.submitToken = value;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(Text.literal("Submit token updated.").formatted(Formatting.AQUA));
+                            context.getSource().sendFeedback(createText("Submit token updated.").copy().formatted(Formatting.AQUA));
                             return 1;
                         })
                     )
@@ -160,8 +173,8 @@ public class SpawnMapMod implements ClientModInitializer {
 
     private int showArea(FabricClientCommandSource source) {
         ModConfig config = ConfigManager.get();
-        source.sendFeedback(Text.literal("Recording: " + config.formatBounds()
-                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").formatted(Formatting.AQUA));
+        source.sendFeedback(createText("Recording: " + config.formatBounds()
+                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").copy().formatted(Formatting.AQUA));
         return 1;
     }
 
@@ -169,7 +182,7 @@ public class SpawnMapMod implements ClientModInitializer {
         ModConfig config = ConfigManager.get();
         config.setSpawnRadius(radius);
         ConfigManager.save();
-        source.sendFeedback(Text.literal("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").formatted(Formatting.GREEN));
+        source.sendFeedback(createText("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").copy().formatted(Formatting.GREEN));
         return 1;
     }
 
@@ -177,7 +190,7 @@ public class SpawnMapMod implements ClientModInitializer {
         ModConfig config = ConfigManager.get();
         config.setRecordWorld(true);
         ConfigManager.save();
-        source.sendFeedback(Text.literal("Recording the whole world. Any loaded chunk you walk near can be sent.").formatted(Formatting.GREEN));
+        source.sendFeedback(createText("Recording the whole world. Any loaded chunk you walk near can be sent.").copy().formatted(Formatting.GREEN));
         return 1;
     }
 
