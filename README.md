@@ -7,9 +7,7 @@ A lightweight client-side Fabric mod for scanning surface blocks around 6b6t spa
 
 ---
 
-## Features
-
-- Scans top-level and exposed surface blocks in loaded chunks
+- Scans all non-air blocks and fluids across all chunk sections
 - Automatically streams chunk data to the configured web map backend
 - Built-in retry queue with exponential backoff and deduplication
 - On-screen HUD showing scan status, queue size, and upload statistics
