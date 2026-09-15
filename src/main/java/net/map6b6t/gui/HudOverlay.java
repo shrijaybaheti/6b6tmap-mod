@@ -5,7 +5,6 @@ import net.map6b6t.config.ModConfig;
 import net.map6b6t.network.NetworkStats;
 import net.map6b6t.network.UploadService;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -23,10 +22,8 @@ public class HudOverlay {
                 callbackClass.getClassLoader(),
                 new Class<?>[] { callbackClass },
                 (p, method, args) -> {
-                    if ("onHudRender".equals(method.getName()) && args != null && args.length >= 1) {
-                        if (args[0] instanceof DrawContext) {
-                            renderHud((DrawContext) args[0]);
-                        }
+                    if (args != null && args.length >= 1 && args[0] != null) {
+                        renderHud(args[0]);
                     }
                     return null;
                 }
@@ -51,8 +48,8 @@ public class HudOverlay {
                 hudElement.getClassLoader(),
                 new Class<?>[] { hudElement },
                 (p, method, args) -> {
-                    if (args != null && args.length >= 1 && args[0] instanceof DrawContext) {
-                        renderHud((DrawContext) args[0]);
+                    if (args != null && args.length >= 1 && args[0] != null) {
+                        renderHud(args[0]);
                     }
                     return null;
                 }
@@ -67,7 +64,7 @@ public class HudOverlay {
         }
     }
 
-    private static void renderHud(DrawContext drawContext) {
+    private static void renderHud(Object renderContext) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.options.hudHidden) {
             return;
@@ -107,17 +104,58 @@ public class HudOverlay {
                 ? stats.lastError()
                 : "Area " + config.formatBounds();
 
+        drawText(renderContext, client, status, 8, 8, color);
+        drawText(renderContext, client, count, 8, 18, 0xFFFFFF);
+        drawText(renderContext, client, extra, 8, 28, 0xAAAAAA);
+    }
+
+    private static void drawText(Object context, MinecraftClient client, String text, int x, int y, int color) {
+        if (context == null || client.textRenderer == null) {
+            return;
+        }
         try {
-            drawContext.drawTextWithShadow(client.textRenderer, status, 8, 8, color);
-            drawContext.drawTextWithShadow(client.textRenderer, count, 8, 18, 0xFFFFFF);
-            drawContext.drawTextWithShadow(client.textRenderer, extra, 8, 28, 0xAAAAAA);
-        } catch (Throwable t) {
-            try {
-                Method drawMethod = drawContext.getClass().getMethod("drawTextWithShadow", client.textRenderer.getClass(), String.class, int.class, int.class, int.class);
-                drawMethod.invoke(drawContext, client.textRenderer, status, 8, 8, color);
-                drawMethod.invoke(drawContext, client.textRenderer, count, 8, 18, 0xFFFFFF);
-                drawMethod.invoke(drawContext, client.textRenderer, extra, 8, 28, 0xAAAAAA);
-            } catch (Exception ignored) {}
+            for (Method m : context.getClass().getMethods()) {
+                if (m.getName().startsWith("drawText") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
+                    Class<?>[] params = m.getParameterTypes();
+                    if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
+                        m.invoke(context, client.textRenderer, text, x, y, color);
+                        return;
+                    }
+                    if (params.length == 6 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
+                        m.invoke(context, client.textRenderer, text, x, y, color, true);
+                        return;
+                    }
+                    if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
+                        Object textObj = net.minecraft.text.Text.literal(text);
+                        m.invoke(context, client.textRenderer, textObj, x, y, color, true);
+                        return;
+                    }
+                    if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
+                        Object textObj = net.minecraft.text.Text.literal(text);
+                        m.invoke(context, client.textRenderer, textObj, x, y, color);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            for (Method m : client.textRenderer.getClass().getMethods()) {
+                if (m.getName().startsWith("drawWithShadow") || m.getName().equals("method_27521") || m.getName().equals("method_1720")) {
+                    Class<?>[] params = m.getParameterTypes();
+                    if (params.length == 5 && params[1] == String.class && (params[2] == float.class || params[2] == int.class)) {
+                        m.invoke(client.textRenderer, context, text, (float) x, (float) y, color);
+                        return;
+                    }
+                    if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
+                        Object textObj = net.minecraft.text.Text.literal(text);
+                        m.invoke(client.textRenderer, context, textObj, (float) x, (float) y, color);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
         }
     }
 }
