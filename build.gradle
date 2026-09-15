@@ -1,0 +1,34 @@
+plugins {
+    id 'fabric-loom' version '1.14.10' apply false
+}
+
+tasks.register('jars') {
+    group = 'build'
+    description = 'Build Fabric jars for 1.20.4 and 1.21.11'
+    dependsOn ':mc1204:remapJar', ':mc12111:remapJar'
+}
+
+tasks.register('copyWebsiteJars') {
+    group = 'build'
+    dependsOn 'jars'
+    doLast {
+        def dest = file("${rootDir}/../Server/Website/mods")
+        dest.mkdirs()
+        copy {
+            from project(':mc1204').tasks.named('remapJar').get().archiveFile
+            from project(':mc12111').tasks.named('remapJar').get().archiveFile
+            into dest
+        }
+    }
+}
+
+tasks.register('jar') {
+    group = 'build'
+    dependsOn 'jars'
+}
+
+tasks.register('runClient') {
+    group = 'fabric'
+    description = 'Runs Minecraft client (defaults to 1.21.11)'
+    dependsOn ':mc12111:runClient'
+}

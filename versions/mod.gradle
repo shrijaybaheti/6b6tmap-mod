@@ -1,0 +1,67 @@
+version = rootProject.mod_version
+group = rootProject.maven_group
+
+base {
+    archivesName = "${rootProject.archives_base_name}-${project.minecraft_version}"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation fabricApi.module("fabric-command-api-v2", "${project.fabric_version}")
+    modImplementation fabricApi.module("fabric-lifecycle-events-v1", "${project.fabric_version}")
+    modImplementation fabricApi.module("fabric-rendering-v1", "${project.fabric_version}")
+}
+
+sourceSets {
+    main {
+        java.srcDirs = [file("${rootDir}/src/main/java")]
+        resources.srcDirs = [file("${rootDir}/src/main/resources")]
+    }
+}
+
+loom {
+    runs {
+        client {
+            client()
+            setConfigName("Client ${project.minecraft_version}")
+            ideConfigGenerated(true)
+            runDir("run")
+            vmArg("-Djava.net.preferIPv4Stack=true")
+            vmArg("-Dsun.net.spi.nameservice.nameservers=1.1.1.1,8.8.8.8")
+            vmArg("-Dsun.net.spi.nameservice.provider.1=dns,sun")
+            programArgs("--username", "livemaptest1234", "--uuid", "14d8a3e9-4b7e-3aab-8e0b-a1b4c132eeb8", "--accessToken", "0", "--userType", "legacy")
+        }
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "java_version", project.java_version
+
+    filesMatching("fabric.mod.json") {
+        expand(
+            version: project.version,
+            minecraft_version: project.minecraft_version,
+            java_version: project.java_version
+        )
+    }
+}
+
+def javaVer = JavaVersion.toVersion(project.java_version)
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = Integer.parseInt(project.java_version.toString())
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = javaVer
+    targetCompatibility = javaVer
+}

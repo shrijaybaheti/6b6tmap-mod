@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "map6b6t",
+  "version": "${version}",
+  "name": "6b6t Spawn Map",
+  "description": "Scans chunk air-facing surface blocks around 6b6t spawn and uploads them for the web visualizer.",
+  "authors": ["6b6t Community"],
+  "contact": {
+    "homepage": "https://play.6b6t.org"
+  },
+  "license": "MIT",
+  "icon": "assets/map6b6t/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.map6b6t.SpawnMapMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "${minecraft_version}",
+    "java": ">=${java_version}",
+    "fabric-command-api-v2": "*",
+    "fabric-lifecycle-events-v1": "*",
+    "fabric-rendering-v1": "*"
+  }
+}
