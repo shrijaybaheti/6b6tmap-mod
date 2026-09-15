@@ -6,7 +6,7 @@ Everything runs off the main thread so you can fly around without getting lag sp
 
 ## Features
 
-- Scans chunks in background threads without touching your render FPS
+- Scans chunks in background threads so to not affect much performance.
 - Compresses payloads with gzip before uploading
 - Batches chunks together to save bandwidth
 - Shows a small on-screen counter for upload status and queue size
