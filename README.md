@@ -1,77 +1,66 @@
 # 6b6t Spawn Map Mod
 
-A lightweight client-side Fabric mod for scanning surface blocks around 6b6t spawn and submitting them to the live map server.
+Fabric mod that scans chunks as you walk or fly around 6b6t and uploads block data to the map server.
 
-> **Disclaimer:**
-> This mod is currently in **Beta**. It was built as a baseline community tool to populate the map. It might have rough edges or quirks. The community is heavily encouraged to fork this repo, improve chunk batching, clean up the architecture, rewrite parts, add features, or release their own better versions. PRs and forks are welcome!
-
----
-
-- Scans all non-air blocks and fluids across all chunk sections
-- Automatically streams chunk data to the configured web map backend
-- Built-in retry queue with exponential backoff and deduplication
-- On-screen HUD showing scan status, queue size, and upload statistics
-- Multi-version Gradle setup supporting **Minecraft 1.20.4** and **Minecraft 1.21.11**
+Designed to be lightweight and run in the background without dropping frames or lagging your game.
 
 ---
 
-## Commands
+## What it does
 
-All commands start with `/6b6tmap`:
-
-- `/6b6tmap toggle` &mdash; Enable or disable chunk scanning
-- `/6b6tmap status` &mdash; Print current network stats, queue size, and connection info
-- `/6b6tmap server <url>` &mdash; Set the map upload server URL (e.g. `http://map.6b6t.store/api/chunks/submit`)
-- `/6b6tmap token <token>` &mdash; Set upload authentication token (optional; only needed if server requires auth)
-- `/6b6tmap area spawn [radius]` &mdash; Restrict scanning within spawn radius (default: 5000 blocks)
-- `/6b6tmap area world` &mdash; Allow scanning anywhere across the world
-- `/6b6tmap resetcache` &mdash; Clear session cache of already-uploaded chunks
+- Scans chunks around you asynchronously using worker threads (never blocks the render tick).
+- Pre-compresses payloads with gzip before queuing so uploads go out quickly.
+- Uploads in batches with automatic retries and deduplication if a chunk hasn't changed.
+- Compact in-game HUD showing upload progress, queue count, and network stats.
+- Works on both Minecraft 1.20.4 and 1.21.1.
 
 ---
 
-## Building from Source
+## In-game Commands
 
-### Requirements
-- JDK 21 or higher
-- Git
+Base command: `/6b6tmap`
 
-### Build Commands
+- `/6b6tmap player <name>` — Set your username if auto-detection doesn't catch it.
+- `/6b6tmap toggle` — Turn scanning on/off.
+- `/6b6tmap status` — View active stats (queue depth, total uploaded, errors).
+- `/6b6tmap server <url>` — Point to your server (default: `http://map.6b6t.store/api/chunks/submit`).
+- `/6b6tmap token <value>` — Set upload token if your backend requires it.
+- `/6b6tmap area spawn [radius]` — Limit recording to a set distance from spawn (default: 5000).
+- `/6b6tmap area world` — Scan anywhere in the world.
+- `/6b6tmap resetcache` — Clear the local session cache to rescan already-visited chunks.
 
-Clone the repository:
-```bash
-git clone https://github.com/<your-username>/6b6tmap-mod.git
-cd 6b6tmap-mod
-```
+---
 
-Build mod jars for all supported versions:
+## Building
+
+Requires Java 21+.
+
+Build jars for both 1.20.4 and 1.21.1:
 ```bash
 ./gradlew jars
 ```
 
-Or build a specific version:
+Or build a single version:
 ```bash
-# For Minecraft 1.20.4
 ./gradlew :mc1204:remapJar
-
-# For Minecraft 1.21.11
 ./gradlew :mc12111:remapJar
 ```
 
-The compiled jars will be located in:
+Jars will output to:
 - `versions/1.20.4/build/libs/`
 - `versions/1.21.11/build/libs/`
 
 ---
 
-## Configuration
+## Config
 
-Configuration is saved in `.minecraft/config/6b6tmap.json`:
+Settings live in `.minecraft/config/6b6tmap.json`:
 
 ```json
 {
   "enabled": true,
   "serverUrl": "http://map.6b6t.store/api/chunks/submit",
-  "submitToken": "your-token-here",
+  "submitToken": "your-token",
   "playerOverride": "",
   "spawnRadius": 5000,
   "recordWorld": false,
@@ -83,4 +72,4 @@ Configuration is saved in `.minecraft/config/6b6tmap.json`:
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT
