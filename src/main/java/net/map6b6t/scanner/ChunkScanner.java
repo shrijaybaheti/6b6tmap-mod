@@ -6,7 +6,7 @@ import net.minecraft.fluid.Fluids;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 
-import java.lang.reflect.Method;
+import net.minecraft.registry.Registries;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,21 +19,7 @@ public class ChunkScanner {
     private static String getBlockIdString(net.minecraft.block.Block block) {
         String cached = BLOCK_NAME_CACHE.get(block);
         if (cached == null) {
-            try {
-                Class<?> registriesClass = Class.forName("net.minecraft.registry.Registries");
-                Object blockRegistry = registriesClass.getField("BLOCK").get(null);
-                Method getId = blockRegistry.getClass().getMethod("getId", Object.class);
-                cached = getId.invoke(blockRegistry, block).toString();
-            } catch (Exception e) {
-                try {
-                    Class<?> registryClass = Class.forName("net.minecraft.util.registry.Registry");
-                    Object blockRegistry = registryClass.getField("BLOCK").get(null);
-                    Method getId = blockRegistry.getClass().getMethod("getId", Object.class);
-                    cached = getId.invoke(blockRegistry, block).toString();
-                } catch (Exception ex) {
-                    cached = block.toString();
-                }
-            }
+            cached = Registries.BLOCK.getId(block).toString();
             BLOCK_NAME_CACHE.put(block, cached);
         }
         return cached;

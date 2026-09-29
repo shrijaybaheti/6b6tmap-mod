@@ -194,6 +194,24 @@ public class SpawnMapMod implements ClientModInitializer {
         return 1;
     }
 
+    private static final java.util.Set<String> ALLOWED_SERVERS = java.util.Set.of(
+            "6b6t.org", "6b6t.net", "6b6t.co", "6b6t.me",
+            "l2x9.org", "10b10t.org", "alacity.net", "simpleanarchy.org", "simpleanarchy.net"
+    );
+
+    private static boolean is6b6tServer(MinecraftClient client) {
+        if (client.getCurrentServerEntry() == null) return false;
+        String addr = client.getCurrentServerEntry().address;
+        if (addr == null || addr.isBlank()) return false;
+        String host = addr.toLowerCase().trim();
+        int colonIdx = host.lastIndexOf(':');
+        if (colonIdx > 0) host = host.substring(0, colonIdx);
+        for (String allowed : ALLOWED_SERVERS) {
+            if (host.equals(allowed) || host.endsWith("." + allowed)) return true;
+        }
+        return false;
+    }
+
     private void onTick(MinecraftClient client) {
         ClientWorld world = client.world;
         ClientPlayerEntity player = client.player;
@@ -204,6 +222,10 @@ public class SpawnMapMod implements ClientModInitializer {
         }
 
         if (world == null || player == null) {
+            return;
+        }
+
+        if (!is6b6tServer(client)) {
             return;
         }
 
