@@ -2,16 +2,6 @@
 
 Client mod for 6b6t that maps chunks around you and sends the block data to the live map.
 
-Everything runs off the main thread so you can fly around without getting lag spikes or stuttering.
-
-## Features
-
-- Scans chunks in background threads so to not affect much performance.
-- Compresses payloads with gzip before uploading
-- Batches chunks together to save bandwidth
-- Shows a small on-screen counter for upload status and queue size
-- Dynamic version support (works across 1.18 through 1.21+)
-
 ## Commands
 
 All commands start with `/6b6tmap`:
