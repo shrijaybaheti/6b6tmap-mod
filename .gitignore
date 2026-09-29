@@ -10,3 +10,6 @@ out/
 .idea/
 .vscode/
 .DS_Store
+
+jdk25/
+jdk25.zip

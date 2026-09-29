@@ -11,16 +11,27 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation fabricApi.module("fabric-command-api-v2", "${project.fabric_version}")
-    modImplementation fabricApi.module("fabric-lifecycle-events-v1", "${project.fabric_version}")
-    modImplementation fabricApi.module("fabric-rendering-v1", "${project.fabric_version}")
+    if (project.hasProperty("yarn_mappings")) {
+        mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    }
+    if (project.hasProperty("yarn_mappings")) {
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation fabricApi.module("fabric-command-api-v2", "${project.fabric_version}")
+        modImplementation fabricApi.module("fabric-lifecycle-events-v1", "${project.fabric_version}")
+        modImplementation fabricApi.module("fabric-rendering-v1", "${project.fabric_version}")
+    } else {
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    }
 }
 
 sourceSets {
     main {
-        java.srcDirs = [file("${rootDir}/src/main/java")]
+        if (project.hasProperty("yarn_mappings")) {
+            java.srcDirs = [file("${rootDir}/src/main/java")]
+        } else {
+            java.srcDirs = [file("${rootDir}/src-26/main/java")]
+        }
         resources.srcDirs = [file("${rootDir}/src/main/resources")]
     }
 }
@@ -39,12 +50,14 @@ loom {
 processResources {
     inputs.property "version", project.version
     inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "minecraft_dependency", project.minecraft_dependency
     inputs.property "java_version", project.java_version
 
     filesMatching("fabric.mod.json") {
         expand(
             version: project.version,
             minecraft_version: project.minecraft_version,
+            minecraft_dependency: project.minecraft_dependency,
             java_version: project.java_version
         )
     }
@@ -60,4 +73,7 @@ java {
     withSourcesJar()
     sourceCompatibility = javaVer
     targetCompatibility = javaVer
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version.toString()))
+    }
 }

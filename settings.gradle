@@ -11,6 +11,7 @@ pluginManagement {
 
 rootProject.name = 'map6b6t'
 
-include 'mc1204', 'mc12111'
+include 'mc1204', 'mc12111', 'mc2612'
 project(':mc1204').projectDir = file('versions/1.20.4')
 project(':mc12111').projectDir = file('versions/1.21.11')
+project(':mc2612').projectDir = file('versions/26.1.2')
