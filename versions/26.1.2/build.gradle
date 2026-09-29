@@ -1,5 +1,0 @@
-plugins {
-    id 'net.fabricmc.fabric-loom'
-}
-
-apply from: '../mod.gradle'
