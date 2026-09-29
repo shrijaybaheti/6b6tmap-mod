@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,3 +45,12 @@ jobs:
           name: map6b6t-jars
           path: |
             versions/*/build/libs/*[!s].jar
+
+      - name: Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the latest release tag
+          LATEST_TAG=$(gh release view --json tagName -q .tagName)
+          # Upload the new jars to the latest release, overwriting any existing ones
+          gh release upload $LATEST_TAG versions/*/build/libs/*[!s].jar --clobber
