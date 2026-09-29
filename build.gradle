@@ -7,6 +7,12 @@ tasks.register('jars') {
     group = 'build'
     description = 'Build Fabric jars for 1.20.4 and 1.21.11'
     dependsOn ':mc1204:remapJar', ':mc12111:remapJar'
+    
+    doLast {
+        def mc12111Jar = project(':mc12111').tasks.named('remapJar').get().archiveFile.get().asFile
+        def mc2612Jar = new File(mc12111Jar.parentFile, mc12111Jar.name.replace("1.21.11", "26.1.2"))
+        mc2612Jar.bytes = mc12111Jar.bytes
+    }
 }
 
 tasks.register('copyWebsiteJars') {
