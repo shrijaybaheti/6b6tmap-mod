@@ -1,7 +1,7 @@
 package net.map6b6t.config;
 
 public class ModConfig {
-    public static final int DEFAULT_SPAWN_RADIUS = 5000;
+    public static final int DEFAULT_SPAWN_RADIUS = 25000;
 
     public boolean enabled = true;
     public String serverUrl = "http://map.6b6t.store/api/chunks/submit";
