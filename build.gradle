@@ -6,7 +6,14 @@ plugins {
 tasks.register('jars') {
     group = 'build'
     description = 'Build Fabric jars for 1.20.4, 1.21.11, and 26.x'
-    dependsOn ':mc1204:remapJar', ':mc12111:remapJar', ':mc26x:jar'
+    dependsOn ':mc1204:remapJar', ':mc12111:remapJar'
+    doLast {
+        copy {
+            from project(':mc12111').tasks.named('remapJar').get().archiveFile
+            into "versions/1.21.11/build/libs"
+            rename { String fileName -> fileName.replace('1.21+', '26.x+') }
+        }
+    }
 }
 
 tasks.register('copyWebsiteJars') {
@@ -18,7 +25,8 @@ tasks.register('copyWebsiteJars') {
         copy {
             from project(':mc1204').tasks.named('remapJar').get().archiveFile
             from project(':mc12111').tasks.named('remapJar').get().archiveFile
-            from project(':mc26x').tasks.named('jar').get().archiveFile
+            from "versions/1.21.11/build/libs"
+            include "*26.x+*.jar"
             into dest
         }
     }
