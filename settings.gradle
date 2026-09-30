@@ -13,3 +13,6 @@ project(':mc1204').projectDir = file('versions/1.20.4')
 
 include ':mc12111'
 project(':mc12111').projectDir = file('versions/1.21.11')
+
+include ':mc26x'
+project(':mc26x').projectDir = file('versions/26.x')
