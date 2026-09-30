@@ -1,4 +1,5 @@
 plugins {
+    id 'java'
     id 'net.fabricmc.fabric-loom'
 }
 version = rootProject.mod_version
@@ -16,5 +17,12 @@ dependencies {
 sourceSets {
     main {
         java.srcDirs = ['src/main/java']
+        resources.srcDirs = ['../src/main/resources']
+    }
+}
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand(version: project.version)
     }
 }
