@@ -19,7 +19,7 @@ All commands start with `/6b6tmap`:
 
 Requires JDK 21.
 
-Build both jars:
+Build jars:
 ```bash
 ./gradlew jars
 ```
