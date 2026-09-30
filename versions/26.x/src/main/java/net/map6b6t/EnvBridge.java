@@ -8,6 +8,20 @@ import java.lang.reflect.Method;
 
 public class EnvBridge {
 
+    public static long asLong(int x, int z) {
+        try {
+            Method m = ChunkPos.class.getMethod("asLong", int.class, int.class);
+            return (Long) m.invoke(null, x, z);
+        } catch (Exception e) {
+            try {
+                Method m = ChunkPos.class.getMethod("toLong", int.class, int.class);
+                return (Long) m.invoke(null, x, z);
+            } catch (Exception e2) {
+                return 0L; // Fallback
+            }
+        }
+    }
+
     public static int getChunkX(ChunkPos pos) {
         try {
             try {

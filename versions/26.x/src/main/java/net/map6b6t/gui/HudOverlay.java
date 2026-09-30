@@ -4,7 +4,7 @@ import net.map6b6t.config.ConfigManager;
 import net.map6b6t.config.ModConfig;
 import net.map6b6t.network.NetworkStats;
 import net.map6b6t.network.UploadService;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -126,12 +126,12 @@ public class HudOverlay {
                         return;
                     }
                     if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                        Object textObj = net.minecraft.text.Text.literal(text);
+                        Object textObj = net.minecraft.network.chat.Component.literal(text);
                         m.invoke(context, client.textRenderer, textObj, x, y, color, true);
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                        Object textObj = net.minecraft.text.Text.literal(text);
+                        Object textObj = net.minecraft.network.chat.Component.literal(text);
                         m.invoke(context, client.textRenderer, textObj, x, y, color);
                         return;
                     }
@@ -149,7 +149,7 @@ public class HudOverlay {
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
-                        Object textObj = net.minecraft.text.Text.literal(text);
+                        Object textObj = net.minecraft.network.chat.Component.literal(text);
                         m.invoke(client.textRenderer, context, textObj, (float) x, (float) y, color);
                         return;
                     }

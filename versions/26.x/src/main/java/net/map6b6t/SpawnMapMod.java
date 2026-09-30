@@ -15,13 +15,13 @@ import net.map6b6t.network.UploadQueue;
 import net.map6b6t.network.UploadService;
 import net.map6b6t.scanner.ChunkScanner;
 import net.map6b6t.scanner.ScannedBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +52,7 @@ public class SpawnMapMod implements ClientModInitializer {
     public void onInitializeClient() {
         ConfigManager.load();
         UploadService.get().setUploadListener((chunkX, chunkZ, contentHash) ->
-                lastSeenHash.put(ChunkPos.asLong(chunkX, chunkZ), contentHash));
+                lastSeenHash.put(net.map6b6t.EnvBridge.asLong(chunkX, chunkZ), contentHash));
         UploadService.get().start();
         net.map6b6t.gui.HudOverlay.register();
 
@@ -241,7 +241,7 @@ public class SpawnMapMod implements ClientModInitializer {
         String dimension = world.dimension().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
         int bottomY = net.map6b6t.EnvBridge.getMinBuildHeight(chunk);
 
         UploadService.get().submitAsyncScan(
