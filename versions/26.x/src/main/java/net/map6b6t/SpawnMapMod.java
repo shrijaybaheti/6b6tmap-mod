@@ -1,0 +1,294 @@
+package net.map6b6t;
+
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.map6b6t.config.ConfigManager;
+import net.map6b6t.config.ModConfig;
+import net.map6b6t.network.NetworkStats;
+import net.map6b6t.network.UploadQueue;
+import net.map6b6t.network.UploadService;
+import net.map6b6t.scanner.ChunkScanner;
+import net.map6b6t.scanner.ScannedBlock;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.network.LocalPlayer;
+import net.minecraft.client.world.ClientLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Formatting;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.chunk.LevelChunk;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class SpawnMapMod implements ClientModInitializer {
+    private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
+    private ClientLevel lastWorld = null;
+
+    public static Component createText(String str) {
+        try {
+            return (Component) Component.class.getMethod("literal", String.class).invoke(null, str);
+        } catch (Exception e) {
+            try {
+                Class<?> literalTextClass = Class.forName("net.minecraft.network.chat.TextComponent");
+                return (Component) literalTextClass.getConstructor(String.class).newInstance(str);
+            } catch (Exception ex) {
+                return Component.of(str);
+            }
+        }
+    }
+
+    private void resetSessionCache() {
+        lastSeenHash.clear();
+    }
+
+    @Override
+    public void onInitializeClient() {
+        ConfigManager.load();
+        UploadService.get().setUploadListener((chunkX, chunkZ, contentHash) ->
+                lastSeenHash.put(ChunkPos.toLong(chunkX, chunkZ), contentHash));
+        UploadService.get().start();
+        net.map6b6t.gui.HudOverlay.register();
+
+        ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            dispatcher.register(ClientCommandManager.literal("6b6tmap")
+                .then(ClientCommandManager.literal("toggle")
+                    .executes(context -> {
+                        ModConfig config = ConfigManager.get();
+                        config.enabled = !config.enabled;
+                        ConfigManager.save();
+                        context.getSource().sendFeedback(createText("6b6t Map " + (config.enabled ? "enabled" : "disabled")).copy().formatted(Formatting.AQUA));
+                        return 1;
+                    })
+                )
+                .then(ClientCommandManager.literal("status")
+                    .executes(context -> {
+                        ModConfig config = ConfigManager.get();
+                        NetworkStats stats = UploadService.get().stats();
+                        context.getSource().sendFeedback(createText("Status: " + (config.enabled ? "ACTIVE" : "INACTIVE")
+                                + " | " + stats.snapshot()
+                                + " | Tracked: " + lastSeenHash.size()
+                                + " | Area: " + config.formatBounds()
+                                + " | URL: " + config.serverUrl
+                                + (stats.lastError().isBlank() ? "" : " | Err: " + stats.lastError())).copy().formatted(Formatting.GREEN));
+                        return 1;
+                    })
+                )
+                .then(ClientCommandManager.literal("resetcache")
+                    .executes(context -> {
+                        resetSessionCache();
+                        context.getSource().sendFeedback(createText("Cleared scanned chunk session cache.").copy().formatted(Formatting.YELLOW));
+                        return 1;
+                    })
+                )
+                .then(ClientCommandManager.literal("server")
+                    .then(ClientCommandManager.argument("url", StringArgumentType.greedyString())
+                        .executes(context -> {
+                            String url = ModConfig.sanitizeServerUrl(StringArgumentType.getString(context, "url"));
+                            if (url.isEmpty() || !(url.startsWith("http://") || url.startsWith("https://"))) {
+                                context.getSource().sendFeedback(createText("URL must start with http:// or https://").copy().formatted(Formatting.RED));
+                                return 0;
+                            }
+                            ModConfig config = ConfigManager.get();
+                            config.serverUrl = url;
+                            ConfigManager.save();
+                            context.getSource().sendFeedback(createText("Server URL updated to: " + url).copy().formatted(Formatting.AQUA));
+                            return 1;
+                        })
+                    )
+                )
+                .then(ClientCommandManager.literal("player")
+                    .then(ClientCommandManager.argument("name", StringArgumentType.string())
+                        .executes(context -> {
+                            String name = StringArgumentType.getString(context, "name");
+                            ModConfig config = ConfigManager.get();
+                            config.playerOverride = name;
+                            ConfigManager.save();
+                            context.getSource().sendFeedback(createText("Player name set to: " + name).copy().formatted(Formatting.AQUA));
+                            return 1;
+                        })
+                    )
+                )
+                .then(ClientCommandManager.literal("token")
+                    .then(ClientCommandManager.argument("value", StringArgumentType.string())
+                        .executes(context -> {
+                            String value = StringArgumentType.getString(context, "value");
+                            ModConfig config = ConfigManager.get();
+                            config.submitToken = value;
+                            ConfigManager.save();
+                            context.getSource().sendFeedback(createText("Submit token updated.").copy().formatted(Formatting.AQUA));
+                            return 1;
+                        })
+                    )
+                )
+                .then(ClientCommandManager.literal("area")
+                    .executes(context -> showArea(context.getSource()))
+                    .then(ClientCommandManager.literal("spawn")
+                        .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
+                        .then(ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
+                            .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
+                        )
+                    )
+                    .then(ClientCommandManager.literal("world")
+                        .executes(context -> setWorldArea(context.getSource()))
+                    )
+                )
+                .then(ClientCommandManager.literal("bounds")
+                    .executes(context -> showArea(context.getSource()))
+                    .then(ClientCommandManager.literal("spawn")
+                        .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
+                        .then(ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
+                            .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
+                        )
+                    )
+                    .then(ClientCommandManager.literal("world")
+                        .executes(context -> setWorldArea(context.getSource()))
+                    )
+                )
+            );
+        });
+    }
+
+    private int showArea(FabricClientCommandSource source) {
+        ModConfig config = ConfigManager.get();
+        source.sendFeedback(createText("Recording: " + config.formatBounds()
+                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").copy().formatted(Formatting.AQUA));
+        return 1;
+    }
+
+    private int setSpawnArea(FabricClientCommandSource source, int radius) {
+        ModConfig config = ConfigManager.get();
+        config.setSpawnRadius(radius);
+        ConfigManager.save();
+        source.sendFeedback(createText("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").copy().formatted(Formatting.GREEN));
+        return 1;
+    }
+
+    private int setWorldArea(FabricClientCommandSource source) {
+        ModConfig config = ConfigManager.get();
+        config.setRecordWorld(true);
+        ConfigManager.save();
+        source.sendFeedback(createText("Recording the whole world. Any loaded chunk you walk near can be sent.").copy().formatted(Formatting.GREEN));
+        return 1;
+    }
+
+    private static final java.util.Set<String> ALLOWED_SERVERS = java.util.Set.of(
+            "6b6t.org", "6b6t.net", "6b6t.co", "6b6t.me",
+            "l2x9.org", "10b10t.org", "alacity.net", "simpleanarchy.org", "simpleanarchy.net"
+    );
+
+    private static boolean is6b6tServer(Minecraft client) {
+        if (client.getCurrentServerEntry() == null) return false;
+        String addr = client.getCurrentServerEntry().address;
+        if (addr == null || addr.isBlank()) return false;
+        String host = addr.toLowerCase().trim();
+        int colonIdx = host.lastIndexOf(':');
+        if (colonIdx > 0) host = host.substring(0, colonIdx);
+        for (String allowed : ALLOWED_SERVERS) {
+            if (host.equals(allowed) || host.endsWith("." + allowed)) return true;
+        }
+        return false;
+    }
+
+    private void onChunkLoad(ClientLevel world, LevelChunk chunk) {
+        if (world == null || chunk == null) {
+            return;
+        }
+
+        Minecraft client = Minecraft.getInstance();
+        if (!is6b6tServer(client)) {
+            return;
+        }
+
+        ModConfig config = ConfigManager.get();
+        if (!config.enabled) {
+            return;
+        }
+
+        if (world != lastWorld) {
+            resetSessionCache();
+            lastWorld = world;
+        }
+
+        ChunkPos pos = chunk.getPos();
+        if (!config.isChunkWithinSpawn(pos.x, pos.z)) {
+            return;
+        }
+
+        if (UploadService.get().shouldPauseScanning()) {
+            return;
+        }
+
+        LocalPlayer player = client.player;
+        String playerName = resolvePlayerName(player);
+        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
+            playerName = config.playerOverride.trim();
+        }
+        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
+            UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
+            return;
+        }
+
+        String dimension = world.getRegistryKey().getValue().toString();
+        String serverVer = resolveServerVersion(client);
+
+        net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
+        int bottomY = chunk.getBottomY();
+
+        UploadService.get().submitAsyncScan(
+                dimension,
+                pos.x,
+                pos.z,
+                playerName,
+                serverVer,
+                sections,
+                bottomY,
+                lastSeenHash::put
+        );
+    }
+
+    private static String resolveServerVersion(Minecraft client) {
+        if (client.getCurrentServerEntry() != null && client.getCurrentServerEntry().version != null) {
+            return client.getCurrentServerEntry().version.getString();
+        }
+        if (client.getNetworkHandler() != null && client.getNetworkHandler().getBrand() != null) {
+            return client.getNetworkHandler().getBrand();
+        }
+        return "1.20.4";
+    }
+
+    private static String resolvePlayerName(LocalPlayer player) {
+        if (player == null) return "";
+        try {
+            Object profile = player.getGameProfile();
+            if (profile != null) {
+                try {
+                    java.lang.reflect.Method getName = profile.getClass().getMethod("getName");
+                    Object res = getName.invoke(profile);
+                    if (res != null) return res.toString();
+                } catch (NoSuchMethodException e) {
+                    try {
+                        java.lang.reflect.Method nameMethod = profile.getClass().getMethod("name");
+                        Object res = nameMethod.invoke(profile);
+                        if (res != null) return res.toString();
+                    } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            return player.getName().getString();
+        } catch (Exception ignored) {}
+
+        return "";
+    }
+}
