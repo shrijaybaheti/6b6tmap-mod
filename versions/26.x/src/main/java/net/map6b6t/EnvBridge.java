@@ -7,17 +7,32 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class EnvBridge {
+    private static Field getField(Class<?> clazz, String devName, String prodName) throws Exception {
+        try {
+            return clazz.getDeclaredField(devName);
+        } catch (NoSuchFieldException e) {
+            return clazz.getDeclaredField(prodName);
+        }
+    }
+
+    private static Method getMethod(Class<?> clazz, String devName, String prodName, Class<?>... parameterTypes) throws Exception {
+        try {
+            return clazz.getDeclaredMethod(devName, parameterTypes);
+        } catch (NoSuchMethodException e) {
+            return clazz.getDeclaredMethod(prodName, parameterTypes);
+        }
+    }
 
     public static long asLong(int x, int z) {
         try {
-            Method m = ChunkPos.class.getMethod("asLong", int.class, int.class);
+            Method m = getMethod(ChunkPos.class, "toLong", "method_24022", int.class, int.class);
             return (Long) m.invoke(null, x, z);
         } catch (Exception e) {
             try {
-                Method m = ChunkPos.class.getMethod("toLong", int.class, int.class);
+                Method m = getMethod(ChunkPos.class, "asLong", "method_8324", int.class, int.class);
                 return (Long) m.invoke(null, x, z);
             } catch (Exception e2) {
-                return 0L; // Fallback
+                return 0L;
             }
         }
     }
@@ -25,13 +40,13 @@ public class EnvBridge {
     public static int getChunkX(ChunkPos pos) {
         try {
             try {
-                Field xField = ChunkPos.class.getDeclaredField("x");
-                xField.setAccessible(true);
-                return xField.getInt(pos);
+                Field f = getField(ChunkPos.class, "x", "field_9181");
+                f.setAccessible(true);
+                return f.getInt(pos);
             } catch (Exception e) {
-                Method xMethod = ChunkPos.class.getDeclaredMethod("x");
-                xMethod.setAccessible(true);
-                return (Integer) xMethod.invoke(pos);
+                Method m = getMethod(ChunkPos.class, "x", "method_33942");
+                m.setAccessible(true);
+                return (Integer) m.invoke(pos);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -41,13 +56,13 @@ public class EnvBridge {
     public static int getChunkZ(ChunkPos pos) {
         try {
             try {
-                Field zField = ChunkPos.class.getDeclaredField("z");
-                zField.setAccessible(true);
-                return zField.getInt(pos);
+                Field f = getField(ChunkPos.class, "z", "field_9182");
+                f.setAccessible(true);
+                return f.getInt(pos);
             } catch (Exception e) {
-                Method zMethod = ChunkPos.class.getDeclaredMethod("z");
-                zMethod.setAccessible(true);
-                return (Integer) zMethod.invoke(pos);
+                Method m = getMethod(ChunkPos.class, "z", "method_33943");
+                m.setAccessible(true);
+                return (Integer) m.invoke(pos);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -57,14 +72,14 @@ public class EnvBridge {
     public static int getMinBuildHeight(LevelChunk chunk) {
         try {
             try {
-                Method m = LevelChunk.class.getMethod("getMinBuildHeight");
+                Method m = getMethod(LevelChunk.class, "getBottomY", "method_31719");
                 return (Integer) m.invoke(chunk);
             } catch (Exception e) {
-                Method m = LevelChunk.class.getMethod("getBottomY");
+                Method m = getMethod(LevelChunk.class, "getMinBuildHeight", "method_31607");
                 return (Integer) m.invoke(chunk);
             }
         } catch (Exception e) {
-            return -64; // fallback
+            return -64;
         }
     }
 
@@ -72,18 +87,18 @@ public class EnvBridge {
         try {
             Object currentServer = null;
             try {
-                Method m = Minecraft.class.getMethod("getCurrentServer");
+                Method m = getMethod(Minecraft.class, "getCurrentServerEntry", "method_1558");
                 currentServer = m.invoke(client);
             } catch (Exception e) {
-                Method m = Minecraft.class.getMethod("getCurrentServerEntry");
+                Method m = getMethod(Minecraft.class, "getCurrentServer", "method_1558"); // Actually method_1558 in both usually, or changed mapping
                 currentServer = m.invoke(client);
             }
             if (currentServer == null) return null;
             
             try {
-                Field vField = currentServer.getClass().getDeclaredField("version");
+                Field vField = getField(currentServer.getClass(), "version", "field_3760");
                 Object versionObj = vField.get(currentServer);
-                Method getString = versionObj.getClass().getMethod("getString");
+                Method getString = getMethod(versionObj.getClass(), "getString", "method_10851");
                 return (String) getString.invoke(versionObj);
             } catch (Exception e) {
                 return null;
@@ -97,14 +112,14 @@ public class EnvBridge {
         try {
             Object currentServer = null;
             try {
-                Method m = Minecraft.class.getMethod("getCurrentServer");
+                Method m = getMethod(Minecraft.class, "getCurrentServerEntry", "method_1558");
                 currentServer = m.invoke(client);
             } catch (Exception e) {
-                Method m = Minecraft.class.getMethod("getCurrentServerEntry");
+                Method m = getMethod(Minecraft.class, "getCurrentServer", "method_1558");
                 currentServer = m.invoke(client);
             }
             if (currentServer == null) return null;
-            Field aField = currentServer.getClass().getDeclaredField("address");
+            Field aField = getField(currentServer.getClass(), "address", "field_3761");
             return (String) aField.get(currentServer);
         } catch (Exception e) {
             return null;
@@ -115,14 +130,14 @@ public class EnvBridge {
         try {
             Object conn = null;
             try {
-                Method m = Minecraft.class.getMethod("getConnection");
+                Method m = getMethod(Minecraft.class, "getNetworkHandler", "method_1562");
                 conn = m.invoke(client);
             } catch (Exception e) {
-                Method m = Minecraft.class.getMethod("getNetworkHandler");
+                Method m = getMethod(Minecraft.class, "getConnection", "method_1562");
                 conn = m.invoke(client);
             }
             if (conn == null) return null;
-            Method m = conn.getClass().getMethod("serverBrand");
+            Method m = getMethod(conn.getClass(), "serverBrand", "method_46949");
             return (String) m.invoke(conn);
         } catch (Exception e) {
             return null;

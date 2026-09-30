@@ -1,13 +1,12 @@
 package net.map6b6t;
 
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.LevelChunk;
+import java.lang.reflect.Method;
 
 public class TestPos {
-    public static void test(ChunkPos pos, LevelChunk chunk) {
-        int x = pos.x;
-        int z = pos.z;
-        long l = pos.toLong();
-        int y = chunk.getMinBuildHeight();
+    public static void test() {
+        for (Method m : ChunkPos.class.getMethods()) {
+            System.out.println("CHUNKPOS_METHOD: " + m.getName());
+        }
     }
 }
