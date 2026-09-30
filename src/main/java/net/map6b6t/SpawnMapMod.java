@@ -182,8 +182,10 @@ public class SpawnMapMod implements ClientModInitializer {
     }
 
     private static final java.util.Set<String> ALLOWED_SERVERS = java.util.Set.of(
-            "6b6t.org", "6b6t.net", "6b6t.co", "6b6t.me",
-            "l2x9.org", "10b10t.org", "alacity.net", "simpleanarchy.org", "simpleanarchy.net"
+            "6b6t.org", "6b6t.net", "6b6t.co", "6b6t.me", "6b6t.cc",
+            "7b7t.me", "8b8t.org", "8b8t.xyz", "10b10t.org", 
+            "alacity.net", "anarchypvp.pw", "l2x9.org", 
+            "simpleanarchy.org", "simpleanarchy.net"
     );
 
     private static boolean is6b6tServer(MinecraftClient client) {
@@ -205,9 +207,9 @@ public class SpawnMapMod implements ClientModInitializer {
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-        // if (!is6b6tServer(client)) {
-        //     return;
-        // }
+        if (!is6b6tServer(client)) {
+            return;
+        }
 
         ModConfig config = ConfigManager.get();
         if (!config.enabled) {
