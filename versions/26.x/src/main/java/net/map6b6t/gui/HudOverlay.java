@@ -66,7 +66,7 @@ public class HudOverlay {
 
     private static void renderHud(Object renderContext) {
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.options.hudHidden) {
+        if (client.player == null || client.options.hideGui) {
             return;
         }
 
@@ -75,8 +75,8 @@ public class HudOverlay {
             return;
         }
 
-        int chunkX = client.player.chunkPosition().x;
-        int chunkZ = client.player.chunkPosition().z;
+        int chunkX = client.player.chunkPosition().x();
+        int chunkZ = client.player.chunkPosition().z();
         boolean inSpawn = config.isChunkWithinSpawn(chunkX, chunkZ);
 
         NetworkStats stats = UploadService.get().stats();
@@ -110,7 +110,7 @@ public class HudOverlay {
     }
 
     private static void drawText(Object context, Minecraft client, String text, int x, int y, int color) {
-        if (context == null || client.textRenderer == null) {
+        if (context == null || client.font == null) {
             return;
         }
         try {
@@ -118,21 +118,21 @@ public class HudOverlay {
                 if (m.getName().startsWith("drawText") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
                     Class<?>[] params = m.getParameterTypes();
                     if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                        m.invoke(context, client.textRenderer, text, x, y, color);
+                        m.invoke(context, client.font, text, x, y, color);
                         return;
                     }
                     if (params.length == 6 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                        m.invoke(context, client.textRenderer, text, x, y, color, true);
+                        m.invoke(context, client.font, text, x, y, color, true);
                         return;
                     }
                     if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
                         Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(context, client.textRenderer, textObj, x, y, color, true);
+                        m.invoke(context, client.font, textObj, x, y, color, true);
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
                         Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(context, client.textRenderer, textObj, x, y, color);
+                        m.invoke(context, client.font, textObj, x, y, color);
                         return;
                     }
                 }
@@ -141,16 +141,16 @@ public class HudOverlay {
         }
 
         try {
-            for (Method m : client.textRenderer.getClass().getMethods()) {
+            for (Method m : client.font.getClass().getMethods()) {
                 if (m.getName().startsWith("drawWithShadow") || m.getName().equals("method_27521") || m.getName().equals("method_1720")) {
                     Class<?>[] params = m.getParameterTypes();
                     if (params.length == 5 && params[1] == String.class && (params[2] == float.class || params[2] == int.class)) {
-                        m.invoke(client.textRenderer, context, text, (float) x, (float) y, color);
+                        m.invoke(client.font, context, text, (float) x, (float) y, color);
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
                         Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(client.textRenderer, context, textObj, (float) x, (float) y, color);
+                        m.invoke(client.font, context, textObj, (float) x, (float) y, color);
                         return;
                     }
                 }

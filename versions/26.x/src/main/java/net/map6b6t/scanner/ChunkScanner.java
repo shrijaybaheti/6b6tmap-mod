@@ -25,19 +25,19 @@ public class ChunkScanner {
         return cached;
     }
 
-    public static List<ScannedBlock> scanChunk(WorldChunk chunk) {
+    public static List<ScannedBlock> scanChunk(LevelChunk chunk) {
         return scanChunkSections(chunk.getSections(), net.map6b6t.EnvBridge.getMinBuildHeight(chunk));
     }
 
-    public static List<ScannedBlock> scanChunkSections(ChunkSection[] sections, int bottomY) {
+    public static List<ScannedBlock> scanChunkSections(LevelChunkSection[] sections, int bottomY) {
         List<ScannedBlock> list = new ArrayList<>(4096);
         if (sections == null) {
             return list;
         }
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-            ChunkSection section = sections[sectionIndex];
-            if (section == null || section.isEmpty()) {
+            LevelChunkSection section = sections[sectionIndex];
+            if (section == null || section.hasOnlyAir()) {
                 continue;
             }
 

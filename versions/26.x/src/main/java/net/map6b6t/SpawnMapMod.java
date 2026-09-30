@@ -3,7 +3,7 @@ package net.map6b6t;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
@@ -19,7 +19,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
-import net.minecraft.ChatChatFormatting;
+import net.minecraft.ChatFormatting;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 
@@ -29,17 +29,17 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SpawnMapMod implements ClientModInitializer {
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
-    private ClientWorld lastWorld = null;
+    private ClientLevel lastWorld = null;
 
-    public static Text createText(String str) {
+    public static Component createText(String str) {
         try {
-            return (Text) Text.class.getMethod("literal", String.class).invoke(null, str);
+            return (Component) Component.class.getMethod("literal", String.class).invoke(null, str);
         } catch (Exception e) {
             try {
-                Class<?> literalTextClass = Class.forName("net.minecraft.text.LiteralText");
-                return (Text) literalTextClass.getConstructor(String.class).newInstance(str);
+                Class<?> literalComponentClass = Class.forName("net.minecraft.text.LiteralText");
+                return (Component) literalComponentClass.getConstructor(String.class).newInstance(str);
             } catch (Exception ex) {
-                return Text.of(str);
+                return Component.literal(str);
             }
         }
     }
@@ -60,17 +60,17 @@ public class SpawnMapMod implements ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("6b6tmap")
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("toggle")
+            dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("6b6tmap")
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("toggle")
                     .executes(context -> {
                         ModConfig config = ConfigManager.get();
                         config.enabled = !config.enabled;
                         ConfigManager.save();
-                        context.getSource().sendFeedback(createText("6b6t Map " + (config.enabled ? "enabled" : "disabled")).copy().formatted(ChatFormatting.AQUA));
+                        context.getSource().sendFeedback(createText("6b6t Map " + (config.enabled ? "enabled" : "disabled")).copy().withStyle(ChatFormatting.AQUA));
                         return 1;
                     })
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("status")
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("status")
                     .executes(context -> {
                         ModConfig config = ConfigManager.get();
                         NetworkStats stats = UploadService.get().stats();
@@ -79,78 +79,78 @@ public class SpawnMapMod implements ClientModInitializer {
                                 + " | Tracked: " + lastSeenHash.size()
                                 + " | Area: " + config.formatBounds()
                                 + " | URL: " + config.serverUrl
-                                + (stats.lastError().isBlank() ? "" : " | Err: " + stats.lastError())).copy().formatted(ChatFormatting.GREEN));
+                                + (stats.lastError().isBlank() ? "" : " | Err: " + stats.lastError())).copy().withStyle(ChatFormatting.GREEN));
                         return 1;
                     })
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("resetcache")
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("resetcache")
                     .executes(context -> {
                         resetSessionCache();
-                        context.getSource().sendFeedback(createText("Cleared scanned chunk session cache.").copy().formatted(ChatFormatting.YELLOW));
+                        context.getSource().sendFeedback(createText("Cleared scanned chunk session cache.").copy().withStyle(ChatFormatting.YELLOW));
                         return 1;
                     })
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("server")
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("url", StringArgumentType.greedyString())
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("server")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("url", StringArgumentType.greedyString())
                         .executes(context -> {
                             String url = ModConfig.sanitizeServerUrl(StringArgumentType.getString(context, "url"));
                             if (url.isEmpty() || !(url.startsWith("http://") || url.startsWith("https://"))) {
-                                context.getSource().sendFeedback(createText("URL must start with http:// or https://").copy().formatted(ChatFormatting.RED));
+                                context.getSource().sendFeedback(createText("URL must start with http:// or https://").copy().withStyle(ChatFormatting.RED));
                                 return 0;
                             }
                             ModConfig config = ConfigManager.get();
                             config.serverUrl = url;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(createText("Server URL updated to: " + url).copy().formatted(ChatFormatting.AQUA));
+                            context.getSource().sendFeedback(createText("Server URL updated to: " + url).copy().withStyle(ChatFormatting.AQUA));
                             return 1;
                         })
                     )
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("player")
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("name", StringArgumentType.string())
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("player")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("name", StringArgumentType.string())
                         .executes(context -> {
                             String name = StringArgumentType.getString(context, "name");
                             ModConfig config = ConfigManager.get();
                             config.playerOverride = name;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(createText("Player name set to: " + name).copy().formatted(ChatFormatting.AQUA));
+                            context.getSource().sendFeedback(createText("Player name set to: " + name).copy().withStyle(ChatFormatting.AQUA));
                             return 1;
                         })
                     )
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("token")
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("value", StringArgumentType.string())
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("token")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("value", StringArgumentType.string())
                         .executes(context -> {
                             String value = StringArgumentType.getString(context, "value");
                             ModConfig config = ConfigManager.get();
                             config.submitToken = value;
                             ConfigManager.save();
-                            context.getSource().sendFeedback(createText("Submit token updated.").copy().formatted(ChatFormatting.AQUA));
+                            context.getSource().sendFeedback(createText("Submit token updated.").copy().withStyle(ChatFormatting.AQUA));
                             return 1;
                         })
                     )
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("area")
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("area")
                     .executes(context -> showArea(context.getSource()))
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("spawn")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("spawn")
                         .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
-                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
+                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
                             .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
                         )
                     )
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("world")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("world")
                         .executes(context -> setWorldArea(context.getSource()))
                     )
                 )
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("bounds")
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("bounds")
                     .executes(context -> showArea(context.getSource()))
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("spawn")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("spawn")
                         .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
-                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
+                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
                             .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
                         )
                     )
-                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("world")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("world")
                         .executes(context -> setWorldArea(context.getSource()))
                     )
                 )
@@ -161,7 +161,7 @@ public class SpawnMapMod implements ClientModInitializer {
     private int showArea(FabricClientCommandSource source) {
         ModConfig config = ConfigManager.get();
         source.sendFeedback(createText("Recording: " + config.formatBounds()
-                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").copy().formatted(ChatFormatting.AQUA));
+                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").copy().withStyle(ChatFormatting.AQUA));
         return 1;
     }
 
@@ -169,7 +169,7 @@ public class SpawnMapMod implements ClientModInitializer {
         ModConfig config = ConfigManager.get();
         config.setSpawnRadius(radius);
         ConfigManager.save();
-        source.sendFeedback(createText("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").copy().formatted(ChatFormatting.GREEN));
+        source.sendFeedback(createText("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").copy().withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -177,7 +177,7 @@ public class SpawnMapMod implements ClientModInitializer {
         ModConfig config = ConfigManager.get();
         config.setRecordWorld(true);
         ConfigManager.save();
-        source.sendFeedback(createText("Recording the whole world. Any loaded chunk you walk near can be sent.").copy().formatted(ChatFormatting.GREEN));
+        source.sendFeedback(createText("Recording the whole world. Any loaded chunk you walk near can be sent.").copy().withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -199,7 +199,7 @@ public class SpawnMapMod implements ClientModInitializer {
         return false;
     }
 
-    private void onChunkLoad(ClientWorld world, WorldChunk chunk) {
+    private void onChunkLoad(ClientLevel world, LevelChunk chunk) {
         if (world == null || chunk == null) {
             return;
         }
@@ -238,7 +238,7 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = world.dimension().getValue().toString();
+        String dimension = world.dimension().identifier().toString();
         String serverVer = resolveServerVersion(client);
 
         net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
