@@ -15,12 +15,16 @@ dependencies {
 sourceSets {
     main {
         java.srcDirs = ['src/main/java']
-        resources.srcDirs = ['../src/main/resources']
+        resources.srcDirs = ['../../src/main/resources']
     }
 }
 processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") {
-        expand(version: project.version)
+        expand(
+            version: project.version,
+            minecraft_dependency: "26.1.2",
+            java_version: "17"
+        )
     }
 }
