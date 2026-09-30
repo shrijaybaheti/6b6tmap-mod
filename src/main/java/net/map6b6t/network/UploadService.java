@@ -20,7 +20,7 @@ public final class UploadService {
     private static final int WORKERS = 16;
     private static final long STATS_EVERY_MS = 15_000L;
 
-    private static final int SCAN_WORKERS = Math.max(4, Math.min(8, Runtime.getRuntime().availableProcessors()));
+    private static final int SCAN_WORKERS = 2;
 
     private final UploadQueue queue = new UploadQueue();
     private final NetworkStats stats = new NetworkStats();
@@ -252,6 +252,7 @@ public final class UploadService {
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r, "6b6tmap-upload-" + n.incrementAndGet());
             t.setDaemon(true);
+            t.setPriority(Thread.MIN_PRIORITY);
             return t;
         }
     }
@@ -263,6 +264,7 @@ public final class UploadService {
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r, "6b6tmap-scan-" + n.incrementAndGet());
             t.setDaemon(true);
+            t.setPriority(Thread.MIN_PRIORITY);
             return t;
         }
     }
