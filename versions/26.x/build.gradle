@@ -8,10 +8,10 @@ base {
 }
 dependencies {
     minecraft "com.mojang:minecraft:26.1.2"
-    modImplementation "net.fabricmc:fabric-loader:0.19.5"
-    modImplementation fabricApi.module("fabric-command-api-v2", "0.147.0+26.1.2")
-    modImplementation fabricApi.module("fabric-lifecycle-events-v1", "0.147.0+26.1.2")
-    modImplementation fabricApi.module("fabric-rendering-v1", "0.147.0+26.1.2")
+    implementation "net.fabricmc:fabric-loader:0.19.5"
+    implementation fabricApi.module("fabric-command-api-v2", "0.147.0+26.1.2")
+    implementation fabricApi.module("fabric-lifecycle-events-v1", "0.147.0+26.1.2")
+    implementation fabricApi.module("fabric-rendering-v1", "0.147.0+26.1.2")
 }
 sourceSets {
     main {
