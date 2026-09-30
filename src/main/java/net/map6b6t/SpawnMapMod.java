@@ -205,9 +205,9 @@ public class SpawnMapMod implements ClientModInitializer {
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!is6b6tServer(client)) {
-            return;
-        }
+        // if (!is6b6tServer(client)) {
+        //     return;
+        // }
 
         ModConfig config = ConfigManager.get();
         if (!config.enabled) {
