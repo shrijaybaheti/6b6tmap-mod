@@ -65,7 +65,7 @@ public class HudOverlay {
     }
 
     private static void renderHud(Object renderContext) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options.hudHidden) {
             return;
         }
@@ -109,7 +109,7 @@ public class HudOverlay {
         drawText(renderContext, client, extra, 8, 28, 0xAAAAAA);
     }
 
-    private static void drawText(Object context, MinecraftClient client, String text, int x, int y, int color) {
+    private static void drawText(Object context, Minecraft client, String text, int x, int y, int color) {
         if (context == null || client.textRenderer == null) {
             return;
         }

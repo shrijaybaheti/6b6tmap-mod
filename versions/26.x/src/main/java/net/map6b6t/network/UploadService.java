@@ -106,7 +106,7 @@ public final class UploadService {
                     return;
                 }
                 int payloadHash = ChunkSubmission.contentHash(scannedBlocks);
-                long chunkKey = net.minecraft.world.level.net.map6b6t.EnvBridge.asLong(chunkX, chunkZ);
+                long chunkKey = net.map6b6t.EnvBridge.asLong(chunkX, chunkZ);
                 if (onHashComputed != null) {
                     onHashComputed.accept(chunkKey, payloadHash);
                 }
