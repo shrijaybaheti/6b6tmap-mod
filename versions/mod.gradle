@@ -2,7 +2,7 @@ version = rootProject.mod_version
 group = rootProject.maven_group
 
 base {
-    archivesName = "${rootProject.archives_base_name}-${project.minecraft_version}"
+    archivesName = "${rootProject.archives_base_name}-${project.hasProperty('supported_versions') ? project.supported_versions : project.minecraft_version}"
 }
 
 repositories {
