@@ -24,12 +24,6 @@ Build both jars:
 ./gradlew jars
 ```
 
-Build a specific version:
-```bash
-./gradlew :mc1204:remapJar
-./gradlew :mc12111:remapJar
-```
-
 Built jars go into `versions/<version>/build/libs/`.
 
 ## Config
