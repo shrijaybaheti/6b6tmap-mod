@@ -10,7 +10,7 @@ import java.util.Set;
 
 final class UploadWorker implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
-    private static final int MAX_BATCH = 4;
+    private static final int MAX_BATCH = 64;
 
     private final UploadQueue queue;
     private final ChunkUploader uploader;
