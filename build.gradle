@@ -18,7 +18,7 @@ tasks.register('copyWebsiteJars') {
         copy {
             from project(':mc1204').tasks.named('remapJar').get().archiveFile
             from project(':mc12111').tasks.named('remapJar').get().archiveFile
-            from project(':mc26x').tasks.named('remapJar').get().archiveFile
+            from project(':mc26x').tasks.named('jar').get().archiveFile
             into dest
         }
     }
