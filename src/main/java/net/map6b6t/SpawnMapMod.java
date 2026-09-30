@@ -6,8 +6,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.map6b6t.config.ConfigManager;
 import net.map6b6t.config.ModConfig;
 import net.map6b6t.network.NetworkStats;
@@ -23,21 +23,12 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.WorldChunk;
 
-import java.util.ArrayDeque;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SpawnMapMod implements ClientModInitializer {
-    private static final int RESCAN_INTERVAL_TICKS = 200;
-
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
-    private final Map<Long, Integer> lastScanTick = new ConcurrentHashMap<>();
-    private final ArrayDeque<ChunkPos> scanQueue = new ArrayDeque<>();
-    private final Set<Long> queuedChunkKeys = new HashSet<>();
-    private int tickCounter = 0;
     private ClientWorld lastWorld = null;
 
     public static Text createText(String str) {
@@ -55,9 +46,6 @@ public class SpawnMapMod implements ClientModInitializer {
 
     private void resetSessionCache() {
         lastSeenHash.clear();
-        lastScanTick.clear();
-        scanQueue.clear();
-        queuedChunkKeys.clear();
     }
 
     @Override
@@ -68,7 +56,7 @@ public class SpawnMapMod implements ClientModInitializer {
         UploadService.get().start();
         net.map6b6t.gui.HudOverlay.register();
 
-        ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
+        ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
@@ -88,7 +76,6 @@ public class SpawnMapMod implements ClientModInitializer {
                         NetworkStats stats = UploadService.get().stats();
                         context.getSource().sendFeedback(createText("Status: " + (config.enabled ? "ACTIVE" : "INACTIVE")
                                 + " | " + stats.snapshot()
-                                + " | ScanQ: " + scanQueue.size()
                                 + " | Tracked: " + lastSeenHash.size()
                                 + " | Area: " + config.formatBounds()
                                 + " | URL: " + config.serverUrl
@@ -212,19 +199,12 @@ public class SpawnMapMod implements ClientModInitializer {
         return false;
     }
 
-    private void onTick(MinecraftClient client) {
-        ClientWorld world = client.world;
-        ClientPlayerEntity player = client.player;
-
-        if (world != lastWorld) {
-            resetSessionCache();
-            lastWorld = world;
-        }
-
-        if (world == null || player == null) {
+    private void onChunkLoad(ClientWorld world, WorldChunk chunk) {
+        if (world == null || chunk == null) {
             return;
         }
 
+        MinecraftClient client = MinecraftClient.getInstance();
         if (!is6b6tServer(client)) {
             return;
         }
@@ -234,40 +214,21 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        tickCounter++;
-        ChunkPos playerPos = player.getChunkPos();
-        int radius = 5;
+        if (world != lastWorld) {
+            resetSessionCache();
+            lastWorld = world;
+        }
 
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
-                int cx = playerPos.x + dx;
-                int cz = playerPos.z + dz;
-
-                if (!config.isChunkWithinSpawn(cx, cz)) {
-                    continue;
-                }
-
-                long key = ChunkPos.toLong(cx, cz);
-                if (queuedChunkKeys.contains(key)) {
-                    continue;
-                }
-                Integer lastTick = lastScanTick.get(key);
-                if (lastTick == null || tickCounter - lastTick >= RESCAN_INTERVAL_TICKS) {
-                    queuedChunkKeys.add(key);
-                    scanQueue.addLast(new ChunkPos(cx, cz));
-                }
-            }
+        ChunkPos pos = chunk.getPos();
+        if (!config.isChunkWithinSpawn(pos.x, pos.z)) {
+            return;
         }
 
         if (UploadService.get().shouldPauseScanning()) {
             return;
         }
 
-        long budgetNanos = 6_000_000L;
-        int maxChunksThisTick = 32;
-        int processedThisTick = 0;
-        long tickStartTime = System.nanoTime();
-        String dimension = world.getRegistryKey().getValue().toString();
+        ClientPlayerEntity player = client.player;
         String playerName = resolvePlayerName(player);
         if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
             playerName = config.playerOverride.trim();
@@ -276,38 +237,23 @@ public class SpawnMapMod implements ClientModInitializer {
             UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
             return;
         }
+
+        String dimension = world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        while (!scanQueue.isEmpty() && processedThisTick < maxChunksThisTick) {
-            if (UploadService.get().shouldPauseScanning()) {
-                break;
-            }
+        net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
+        int bottomY = chunk.getBottomY();
 
-            ChunkPos target = scanQueue.pollFirst();
-            long key = ChunkPos.toLong(target.x, target.z);
-            queuedChunkKeys.remove(key);
-
-            WorldChunk chunk = world.getChunk(target.x, target.z);
-            if (chunk != null) {
-                lastScanTick.put(key, tickCounter);
-                net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
-                int bottomY = chunk.getBottomY();
-                UploadService.get().submitAsyncScan(
-                        dimension,
-                        target.x,
-                        target.z,
-                        playerName,
-                        serverVer,
-                        sections,
-                        bottomY,
-                        lastSeenHash::put
-                );
-            }
-            processedThisTick++;
-            if (System.nanoTime() - tickStartTime > budgetNanos) {
-                break;
-            }
-        }
+        UploadService.get().submitAsyncScan(
+                dimension,
+                pos.x,
+                pos.z,
+                playerName,
+                serverVer,
+                sections,
+                bottomY,
+                lastSeenHash::put
+        );
     }
 
     private static String resolveServerVersion(MinecraftClient client) {
