@@ -6,7 +6,7 @@ plugins {
 tasks.register('jars') {
     group = 'build'
     description = 'Build Fabric jars for 1.20.4, 1.21.11, and 26.x'
-    dependsOn ':mc1204:remapJar', ':mc12111:remapJar', ':mc26x:remapJar'
+    dependsOn ':mc1204:remapJar', ':mc12111:remapJar', ':mc26x:jar'
 }
 
 tasks.register('copyWebsiteJars') {
