@@ -106,7 +106,7 @@ public final class UploadService {
                     return;
                 }
                 int payloadHash = ChunkSubmission.contentHash(scannedBlocks);
-                long chunkKey = net.minecraft.world.level.ChunkPos.toLong(chunkX, chunkZ);
+                long chunkKey = net.minecraft.world.level.ChunkPos.asLong(chunkX, chunkZ);
                 if (onHashComputed != null) {
                     onHashComputed.accept(chunkKey, payloadHash);
                 }

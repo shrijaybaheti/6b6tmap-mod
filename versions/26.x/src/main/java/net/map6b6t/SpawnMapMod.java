@@ -52,7 +52,7 @@ public class SpawnMapMod implements ClientModInitializer {
     public void onInitializeClient() {
         ConfigManager.load();
         UploadService.get().setUploadListener((chunkX, chunkZ, contentHash) ->
-                lastSeenHash.put(ChunkPos.toLong(chunkX, chunkZ), contentHash));
+                lastSeenHash.put(ChunkPos.asLong(chunkX, chunkZ), contentHash));
         UploadService.get().start();
         net.map6b6t.gui.HudOverlay.register();
 
@@ -187,8 +187,8 @@ public class SpawnMapMod implements ClientModInitializer {
     );
 
     private static boolean is6b6tServer(Minecraft client) {
-        if (client.getCurrentServerEntry() == null) return false;
-        String addr = client.getCurrentServerEntry().address;
+        if (client.getCurrentServer() == null) return false;
+        String addr = client.getCurrentServer().address;
         if (addr == null || addr.isBlank()) return false;
         String host = addr.toLowerCase().trim();
         int colonIdx = host.lastIndexOf(':');
@@ -238,7 +238,7 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = world.getRegistryKey().getValue().toString();
+        String dimension = world.dimension().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
         net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
@@ -257,11 +257,11 @@ public class SpawnMapMod implements ClientModInitializer {
     }
 
     private static String resolveServerVersion(Minecraft client) {
-        if (client.getCurrentServerEntry() != null && client.getCurrentServerEntry().version != null) {
-            return client.getCurrentServerEntry().version.getString();
+        if (client.getCurrentServer() != null && client.getCurrentServer().version != null) {
+            return client.getCurrentServer().version.getString();
         }
-        if (client.getNetworkHandler() != null && client.getNetworkHandler().getBrand() != null) {
-            return client.getNetworkHandler().getBrand();
+        if (client.getConnection() != null && client.getConnection().getBrand() != null) {
+            return client.getConnection().getBrand();
         }
         return "1.20.4";
     }

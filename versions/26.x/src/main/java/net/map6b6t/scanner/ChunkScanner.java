@@ -19,7 +19,7 @@ public class ChunkScanner {
     private static String getBlockIdString(net.minecraft.world.level.block.Block block) {
         String cached = BLOCK_NAME_CACHE.get(block);
         if (cached == null) {
-            cached = BuiltInRegistries.BLOCK.getId(block).toString();
+            cached = BuiltInBuiltInRegistries.BLOCK.getId(block).toString();
             BLOCK_NAME_CACHE.put(block, cached);
         }
         return cached;
