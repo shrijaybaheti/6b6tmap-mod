@@ -240,7 +240,7 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = world.dimension().identifier().toString();
+        String dimension = net.map6b6t.EnvBridge.getDimension(world);
         String serverVer = resolveServerVersion(client);
 
         net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
