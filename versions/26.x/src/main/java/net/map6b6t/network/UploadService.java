@@ -92,7 +92,7 @@ public final class UploadService {
             int chunkZ,
             String playerName,
             String serverVersion,
-            net.minecraft.world.chunk.ChunkSection[] sections,
+            net.minecraft.world.level.chunk.LevelChunkSection[] sections,
             int bottomY,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {

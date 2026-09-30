@@ -16,12 +16,12 @@ import net.map6b6t.network.UploadService;
 import net.map6b6t.scanner.ChunkScanner;
 import net.map6b6t.scanner.ScannedBlock;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.LocalPlayer;
-import net.minecraft.client.world.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ public class SpawnMapMod implements ClientModInitializer {
                 Class<?> literalTextClass = Class.forName("net.minecraft.network.chat.TextComponent");
                 return (Component) literalTextClass.getConstructor(String.class).newInstance(str);
             } catch (Exception ex) {
-                return Component.of(str);
+                return Component.literal(str);
             }
         }
     }
@@ -241,8 +241,8 @@ public class SpawnMapMod implements ClientModInitializer {
         String dimension = world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
-        int bottomY = chunk.getBottomY();
+        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
+        int bottomY = chunk.getMinBuildHeight();
 
         UploadService.get().submitAsyncScan(
                 dimension,

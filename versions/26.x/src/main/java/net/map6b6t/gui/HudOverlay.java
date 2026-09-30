@@ -126,12 +126,12 @@ public class HudOverlay {
                         return;
                     }
                     if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                        Object textObj = net.minecraft.Component.Component.literal(Component);
+                        Object textObj = net.minecraft.network.chat.Component.literal(Component);
                         m.invoke(context, client.textRenderer, textObj, x, y, color, true);
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                        Object textObj = net.minecraft.Component.Component.literal(Component);
+                        Object textObj = net.minecraft.network.chat.Component.literal(Component);
                         m.invoke(context, client.textRenderer, textObj, x, y, color);
                         return;
                     }
@@ -149,7 +149,7 @@ public class HudOverlay {
                         return;
                     }
                     if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
-                        Object textObj = net.minecraft.Component.Component.literal(Component);
+                        Object textObj = net.minecraft.network.chat.Component.literal(Component);
                         m.invoke(client.textRenderer, context, textObj, (float) x, (float) y, color);
                         return;
                     }
