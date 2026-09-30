@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class UploadService {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final UploadService INSTANCE = new UploadService();
-    private static final int WORKERS = 16;
+    private static final int WORKERS = 6;
     private static final long STATS_EVERY_MS = 15_000L;
 
     private static final int SCAN_WORKERS = Math.max(4, Math.min(8, Runtime.getRuntime().availableProcessors()));
