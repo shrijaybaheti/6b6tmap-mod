@@ -21,7 +21,7 @@ import java.util.zip.GZIPOutputStream;
 
 final class ChunkUploader {
     private static final int GZIP_AFTER_BYTES = 256;
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
     private final HttpClient httpClient;
 
