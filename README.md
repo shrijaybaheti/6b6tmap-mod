@@ -47,7 +47,3 @@ Saved to `.minecraft/config/6b6tmap.json`:
   "scanIntervalTicks": 2
 }
 ```
-
-## License
-
-MIT
