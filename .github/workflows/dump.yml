@@ -1,0 +1,36 @@
+name: Dump Classes
+on: [push]
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'oracle'
+          java-version: '25'
+      - name: Compile to get classes
+        run: |
+          chmod +x gradlew
+          ./gradlew :mc26x:compileJava || true
+      - name: Dump ChunkPos
+        run: |
+          find ~/.gradle/caches -name "*.jar" | grep "minecraft-26.1.2" | head -n 1 | xargs -I {} unzip -l {} | grep ChunkPos
+          JAR=ind ~/.gradle/caches -name "*.jar" | grep "minecraft-26.1.2-merged" | head -n 1
+          echo "Jar: $JAR"
+          javap -p -cp "$JAR" net.minecraft.world.level.ChunkPos > dump1.txt
+          javap -p -cp "$JAR" net.minecraft.world.level.chunk.LevelChunk > dump2.txt
+          javap -p -cp "$JAR" net.minecraft.client.player.LocalPlayer > dump3.txt
+          javap -p -cp "$JAR" net.minecraft.client.Minecraft > dump4.txt
+          javap -p -cp "$JAR" net.minecraft.world.level.material.FluidState > dump5.txt
+          javap -p -cp "$JAR" net.minecraft.world.level.block.state.BlockState > dump6.txt
+          javap -p -cp "$JAR" net.minecraft.client.multiplayer.ClientLevel > dump7.txt
+          cat dump1.txt
+          cat dump2.txt
+          cat dump3.txt
+          cat dump4.txt
+          cat dump5.txt
+          cat dump6.txt
+          cat dump7.txt
