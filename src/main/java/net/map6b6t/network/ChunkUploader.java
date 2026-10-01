@@ -44,7 +44,6 @@ final class ChunkUploader {
             byte[] gzipped = gzip(rawJson);
             return sendGzipDirect(url, gzipped);
         } catch (Exception e) {
-            LOGGER.error("Failed to gzip batch payload", e);
             return UploadResult.FAILED;
         }
     }
