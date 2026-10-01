@@ -18,10 +18,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class UploadService {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final UploadService INSTANCE = new UploadService();
-    private static final int WORKERS = 8;
+    private static final int WORKERS = 4;
     private static final long STATS_EVERY_MS = 15_000L;
-
-    private static final int SCAN_WORKERS = 2;
 
     private final UploadQueue queue = new UploadQueue();
     private final NetworkStats stats = new NetworkStats();
@@ -45,8 +43,15 @@ public final class UploadService {
         running.set(true);
         batchEnabled.set(true);
         ThreadFactory factory = new WorkerFactory();
+        int scanWorkers = Math.max(2, Runtime.getRuntime().availableProcessors() / 4);
         workers = Executors.newFixedThreadPool(WORKERS, factory);
-        scanExecutor = Executors.newFixedThreadPool(SCAN_WORKERS, new ScanWorkerFactory());
+        scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
+                scanWorkers, scanWorkers,
+                0L, TimeUnit.MILLISECONDS,
+                new java.util.concurrent.ArrayBlockingQueue<>(4096),
+                new ScanWorkerFactory(),
+                new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
+        );
         httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(15))
@@ -58,7 +63,7 @@ public final class UploadService {
         statsThread = new Thread(this::statsLoop, "6b6tmap-net-stats");
         statsThread.setDaemon(true);
         statsThread.start();
-        LOGGER.info("Upload service started (workers={}, scanWorkers={}, queueCap={})", WORKERS, SCAN_WORKERS, UploadQueue.CAPACITY);
+        LOGGER.info("Upload service started (workers={}, scanWorkers={}, queueCap={})", WORKERS, scanWorkers, UploadQueue.CAPACITY);
     }
 
     public synchronized void shutdown() {
