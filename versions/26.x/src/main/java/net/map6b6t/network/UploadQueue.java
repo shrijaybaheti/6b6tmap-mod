@@ -31,7 +31,7 @@ public final class UploadQueue {
     }
 
     public OfferResult offer(ChunkSubmission job) {
-        if (job == null || job.blocks == null || job.blocks.isEmpty()) {
+        if (job == null || (job.blocks == null && job.preEncodedGzip == null)) {
             return OfferResult.REJECTED;
         }
         synchronized (lock) {
