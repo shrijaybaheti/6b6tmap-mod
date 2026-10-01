@@ -24,6 +24,11 @@ public final class UploadQueue {
     private final Map<ChunkSubmission.Key, Integer> uploadingHash = new HashMap<>();
     private final Set<ChunkSubmission.Key> uploading = new HashSet<>();
     private final Object lock = new Object();
+    private volatile int cachedSize = 0;
+
+    private void updateCachedSize() {
+        cachedSize = queuedByChunk.size() + uploading.size();
+    }
 
     public OfferResult offer(ChunkSubmission job) {
         if (job == null || job.blocks == null || job.blocks.isEmpty()) {
@@ -36,6 +41,7 @@ public final class UploadQueue {
                     return OfferResult.DEDUPLICATED;
                 }
                 replaceQueued(queued, job);
+                updateCachedSize();
                 lock.notifyAll();
                 return OfferResult.REPLACED;
             }
@@ -43,11 +49,12 @@ public final class UploadQueue {
             if (inflightHash != null && inflightHash == job.contentHash) {
                 return OfferResult.DEDUPLICATED;
             }
-            if (occupancy() >= CAPACITY) {
+            if (cachedSize >= CAPACITY) {
                 return OfferResult.FULL;
             }
             queuedByChunk.put(job.key, job);
             ready.addLast(job);
+            updateCachedSize();
             lock.notifyAll();
             return OfferResult.ACCEPTED;
         }
@@ -63,6 +70,7 @@ public final class UploadQueue {
                     queuedByChunk.remove(due.key, due);
                     uploading.add(due.key);
                     uploadingHash.put(due.key, due.contentHash);
+                    updateCachedSize();
                     return due;
                 }
                 if (now >= deadline) {
@@ -83,6 +91,7 @@ public final class UploadQueue {
             queuedByChunk.remove(due.key, due);
             uploading.add(due.key);
             uploadingHash.put(due.key, due.contentHash);
+            updateCachedSize();
             return due;
         }
     }
@@ -91,6 +100,7 @@ public final class UploadQueue {
         synchronized (lock) {
             uploading.remove(job.key);
             uploadingHash.remove(job.key);
+            updateCachedSize();
             lock.notifyAll();
         }
     }
@@ -103,6 +113,7 @@ public final class UploadQueue {
                 queuedByChunk.put(job.key, job);
                 ready.addFirst(job);
             }
+            updateCachedSize();
             lock.notifyAll();
         }
     }
@@ -113,23 +124,24 @@ public final class UploadQueue {
             uploadingHash.remove(job.key);
             ChunkSubmission newer = queuedByChunk.get(job.key);
             if (newer != null && newer.contentHash != job.contentHash) {
+                updateCachedSize();
                 lock.notifyAll();
                 return;
             }
             if (newer == job) {
+                updateCachedSize();
                 lock.notifyAll();
                 return;
             }
             queuedByChunk.put(job.key, job);
             ready.addLast(job);
+            updateCachedSize();
             lock.notifyAll();
         }
     }
 
     public int size() {
-        synchronized (lock) {
-            return occupancy();
-        }
+        return cachedSize;
     }
 
     public int uploadingCount() {
@@ -139,7 +151,7 @@ public final class UploadQueue {
     }
 
     public boolean shouldPauseScanning() {
-        return size() >= PAUSE_SCAN_AT;
+        return cachedSize >= PAUSE_SCAN_AT;
     }
 
     public void clear() {
@@ -148,6 +160,7 @@ public final class UploadQueue {
             queuedByChunk.clear();
             uploading.clear();
             uploadingHash.clear();
+            updateCachedSize();
             lock.notifyAll();
         }
     }
@@ -189,9 +202,5 @@ public final class UploadQueue {
             soonest = Math.min(soonest, wait);
         }
         return soonest;
-    }
-
-    private int occupancy() {
-        return queuedByChunk.size() + uploading.size();
     }
 }
