@@ -38,7 +38,7 @@ final class UploadWorker implements Runnable {
 
                 UploadResult result = batch.size() == 1 || !service.isBatchEnabled()
                         ? uploader.sendSingle(first)
-                        : uploader.sendBatch(batch);
+                        : uploader.sendBatchRaw(batch);
 
                 if (result.batchNotSupported && batch.size() > 1) {
                     service.disableBatching();

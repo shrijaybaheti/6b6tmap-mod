@@ -39,6 +39,58 @@ final class ChunkUploader {
         return send(url, encodeSingle(job));
     }
 
+    private static String batchRawUrl(String base) {
+        if (base.endsWith("/api/chunks/submit")) {
+            return base.substring(0, base.length() - 6) + "batch_raw";
+        }
+        if (base.endsWith("/")) {
+            return base + "api/chunks/batch_raw";
+        }
+        return base + "/api/chunks/batch_raw";
+    }
+
+    UploadResult sendBatchRaw(List<ChunkSubmission> jobs) {
+        String url = batchRawUrl(ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl));
+        try {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream(jobs.size() * 1500);
+            java.io.DataOutputStream dos = new java.io.DataOutputStream(baos);
+            dos.writeInt(jobs.size());
+            for (ChunkSubmission job : jobs) {
+                byte[] gzip = job.preEncodedGzip;
+                if (gzip == null) gzip = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
+                if (gzip == null) {
+                    gzip = gzip(encodeSingle(job));
+                }
+                dos.writeInt(gzip.length);
+                dos.write(gzip);
+            }
+            dos.flush();
+            byte[] payload = baos.toByteArray();
+            
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(REQUEST_TIMEOUT)
+                    .header("Content-Type", "application/octet-stream")
+                    .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(payload));
+            String token = ConfigManager.get().submitToken;
+            if (token != null && !token.isBlank()) {
+                builder.header(Protocol.TOKEN_HEADER, token.trim());
+            }
+
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            int status = response.statusCode();
+            if (status >= 200 && status < 300) {
+                List<UploadResult.Item> items = parseBatchItems(response.body());
+                if (items != null) return UploadResult.mixed(payload.length, items);
+                return UploadResult.ok(payload.length);
+            }
+            return UploadResult.http(status, payload.length, "HTTP " + status, null);
+        } catch (Exception e) {
+            return UploadResult.network(e);
+        }
+    }
+
     UploadResult sendBatch(List<ChunkSubmission> jobs) {
         String url = batchUrl(ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl));
         try {
@@ -266,3 +318,4 @@ final class ChunkUploader {
         return out.toByteArray();
     }
 }
+
