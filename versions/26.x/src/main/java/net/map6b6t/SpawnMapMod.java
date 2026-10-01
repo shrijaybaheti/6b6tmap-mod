@@ -57,7 +57,10 @@ public class SpawnMapMod implements ClientModInitializer {
         net.map6b6t.gui.HudOverlay.register();
 
         ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            net.map6b6t.EnvBridge.clearSessionCache();
+            UploadService.get().shutdown();
+        });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("6b6tmap")
