@@ -105,7 +105,7 @@ public final class UploadService {
                     return;
                 }
                 int payloadHash = ChunkSubmission.contentHash(snapshot);
-                long chunkKey = net.minecraft.util.math.ChunkPos.toLong(chunkX, chunkZ);
+                long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
                 if (onHashComputed != null) {
                     onHashComputed.accept(chunkKey, payloadHash);
                 }

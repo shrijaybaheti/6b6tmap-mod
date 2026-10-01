@@ -93,7 +93,7 @@ public final class UploadService {
             int chunkZ,
             String playerName,
             String serverVersion,
-            List<ScannedBlock> scannedBlocks,
+            net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
@@ -101,12 +101,11 @@ public final class UploadService {
         }
         scanExecutor.execute(() -> {
             try {
-                
-                if (scannedBlocks == null || scannedBlocks.isEmpty()) {
+                if (snapshot == null || snapshot.size == 0) {
                     return;
                 }
-                int payloadHash = ChunkSubmission.contentHash(scannedBlocks);
-                long chunkKey = net.map6b6t.EnvBridge.asLong(chunkX, chunkZ);
+                int payloadHash = ChunkSubmission.contentHash(snapshot);
+                long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
                 if (onHashComputed != null) {
                     onHashComputed.accept(chunkKey, payloadHash);
                 }
@@ -117,21 +116,19 @@ public final class UploadService {
                         chunkZ,
                         playerName,
                         serverVersion,
-                        scannedBlocks,
+                        snapshot,
                         payloadHash
                 );
 
-                String preEncodedJson = null;
                 byte[] encodedGzip = null;
                 try {
                     byte[] rawJson = ChunkUploader.encodeSingle(job);
-                    preEncodedJson = new String(rawJson, StandardCharsets.UTF_8);
                     encodedGzip = ChunkUploader.gzip(rawJson);
                 } catch (Exception ignored) {
                 }
 
                 ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip, preEncodedJson)
+                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip)
                         : job;
 
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
@@ -155,18 +152,16 @@ public final class UploadService {
             int chunkZ,
             String playerName,
             String serverVersion,
-            List<ScannedBlock> blocks
+            net.map6b6t.scanner.PrimitiveChunkSnapshot blocks
     ) {
-        if (!running.get() || blocks == null || blocks.isEmpty()) {
+        if (!running.get() || blocks == null || blocks.size == 0) {
             return UploadQueue.OfferResult.REJECTED;
         }
         int payloadHash = ChunkSubmission.contentHash(blocks);
-        String preEncodedJson = null;
         byte[] encodedGzip = null;
         try {
             ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
             byte[] rawJson = ChunkUploader.encodeSingle(temp);
-            preEncodedJson = new String(rawJson, StandardCharsets.UTF_8);
             encodedGzip = ChunkUploader.gzip(rawJson);
         } catch (Exception ignored) {
         }
@@ -178,8 +173,7 @@ public final class UploadService {
                 serverVersion,
                 encodedGzip != null ? null : blocks,
                 payloadHash,
-                encodedGzip,
-                preEncodedJson
+                encodedGzip
         );
         UploadQueue.OfferResult result = queue.offer(job);
         switch (result) {
@@ -274,4 +268,3 @@ public final class UploadService {
         }
     }
 }
-

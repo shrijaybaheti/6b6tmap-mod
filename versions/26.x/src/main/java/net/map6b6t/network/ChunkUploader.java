@@ -175,25 +175,27 @@ final class ChunkUploader {
     }
 
     static byte[] encodeSingle(ChunkSubmission job) {
-        StringBuilder sb = new StringBuilder(64 + job.blocks.size() * 48);
+        StringBuilder sb = new StringBuilder(1024 * 16);
         appendEnvelopeStart(sb, job);
         appendBlocks(sb, job.blocks);
         sb.append('}');
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private static byte[] encodeBatch(List<ChunkSubmission> jobs) {
-        int estimate = 64;
-        for (ChunkSubmission job : jobs) {
-            estimate += job.preEncodedJson != null ? job.preEncodedJson.length() + 1 : (64 + (job.blocks != null ? job.blocks.size() : 0) * 48);
+    private static String unzipToString(byte[] gzipBytes) throws IOException {
+        try (java.util.zip.GZIPInputStream gis = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(gzipBytes))) {
+            return new String(gis.readAllBytes(), StandardCharsets.UTF_8);
         }
-        StringBuilder sb = new StringBuilder(estimate);
+    }
+
+    private static byte[] encodeBatch(List<ChunkSubmission> jobs) throws IOException {
+        StringBuilder sb = new StringBuilder(1024 * 1024);
         sb.append("{\"protocolVersion\":").append(Protocol.VERSION).append(",\"chunks\":[");
         for (int i = 0; i < jobs.size(); i++) {
             if (i > 0) sb.append(',');
             ChunkSubmission job = jobs.get(i);
-            if (job.preEncodedJson != null) {
-                sb.append(job.preEncodedJson);
+            if (job.preEncodedGzip != null) {
+                sb.append(unzipToString(job.preEncodedGzip));
             } else {
                 sb.append('{');
                 appendEnvelopeFields(sb, job);
@@ -220,16 +222,24 @@ final class ChunkUploader {
           .append("\",");
     }
 
-    private static void appendBlocks(StringBuilder sb, List<ScannedBlock> blocks) {
+    private static void appendBlocks(StringBuilder sb, net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot) {
         sb.append("\"blocks\":[");
-        for (int i = 0; i < blocks.size(); i++) {
-            if (i > 0) sb.append(',');
-            ScannedBlock b = blocks.get(i);
-            sb.append("{\"x\":").append(b.x)
-              .append(",\"y\":").append(b.y)
-              .append(",\"z\":").append(b.z)
-              .append(",\"block\":\"").append(escape(b.block))
-              .append("\"}");
+        if (snapshot != null) {
+            long[] blocks = snapshot.blocks;
+            int size = snapshot.size;
+            for (int i = 0; i < size; i++) {
+                if (i > 0) sb.append(',');
+                long val = blocks[i];
+                int x = (int) (val & 0xF);
+                int y = (int) ((val >>> 4) & 0x1FFF);
+                int z = (int) ((val >>> 17) & 0xF);
+                int rawId = (int) (val >>> 21);
+                String blockName = net.map6b6t.scanner.ChunkScanner.getBlockIdStringFromRaw(rawId);
+                sb.append("{\"x\":").append(x)
+                  .append(",\"y\":").append(y)
+                  .append(",\"z\":").append(z)
+                  .append(",\"block\":\"").append(escape(blockName)).append("\"}");
+            }
         }
         sb.append(']');
     }
