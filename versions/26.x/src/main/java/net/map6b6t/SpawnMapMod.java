@@ -29,7 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SpawnMapMod implements ClientModInitializer {
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
+    private static final int LAST_SEEN_MAX = 500_000;
     private ClientLevel lastWorld = null;
+    private String cachedPlayerName = null;
+    private String cachedDimension = null;
 
     public static Component createText(String str) {
         try {
@@ -222,6 +225,12 @@ public class SpawnMapMod implements ClientModInitializer {
         if (world != lastWorld) {
             resetSessionCache();
             lastWorld = world;
+            cachedDimension = null;
+            cachedPlayerName = null;
+        }
+
+        if (lastSeenHash.size() > LAST_SEEN_MAX) {
+            lastSeenHash.clear();
         }
 
         ChunkPos pos = chunk.getPos();
@@ -234,7 +243,10 @@ public class SpawnMapMod implements ClientModInitializer {
         }
 
         LocalPlayer player = client.player;
-        String playerName = resolvePlayerName(player);
+        if (cachedPlayerName == null) {
+            cachedPlayerName = resolvePlayerName(player);
+        }
+        String playerName = cachedPlayerName;
         if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
             playerName = config.playerOverride.trim();
         }
@@ -243,7 +255,10 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = net.map6b6t.EnvBridge.getDimension(world);
+        if (cachedDimension == null) {
+            cachedDimension = net.map6b6t.EnvBridge.getDimension(world);
+        }
+        String dimension = cachedDimension;
         String serverVer = resolveServerVersion(client);
 
         net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();

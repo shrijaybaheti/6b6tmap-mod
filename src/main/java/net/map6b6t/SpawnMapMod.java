@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SpawnMapMod implements ClientModInitializer {
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
+    private static final int LAST_SEEN_MAX = 500_000;
     private ClientWorld lastWorld = null;
 
     public static Text createText(String str) {
@@ -219,6 +220,10 @@ public class SpawnMapMod implements ClientModInitializer {
         if (world != lastWorld) {
             resetSessionCache();
             lastWorld = world;
+        }
+
+        if (lastSeenHash.size() > LAST_SEEN_MAX) {
+            lastSeenHash.clear();
         }
 
         ChunkPos pos = chunk.getPos();

@@ -11,6 +11,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 public class HudOverlay {
+    @FunctionalInterface
+    private interface TextDrawer {
+        void draw(Object context, Object font, String text, int x, int y, int color) throws Exception;
+    }
+
+    private static TextDrawer cachedDrawer = null;
+
     public static void register() {
         try {
             Class<?> callbackClass = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback");
@@ -110,52 +117,57 @@ public class HudOverlay {
     }
 
     private static void drawText(Object context, Minecraft client, String text, int x, int y, int color) {
-        if (context == null || client.font == null) {
-            return;
-        }
-        try {
-            for (Method m : context.getClass().getMethods()) {
-                if (m.getName().startsWith("drawText") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
-                    Class<?>[] params = m.getParameterTypes();
-                    if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                        m.invoke(context, client.font, text, x, y, color);
-                        return;
-                    }
-                    if (params.length == 6 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                        m.invoke(context, client.font, text, x, y, color, true);
-                        return;
-                    }
-                    if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                        Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(context, client.font, textObj, x, y, color, true);
-                        return;
-                    }
-                    if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                        Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(context, client.font, textObj, x, y, color);
-                        return;
-                    }
-                }
+        if (context == null || client.font == null) return;
+
+        if (cachedDrawer != null) {
+            try {
+                cachedDrawer.draw(context, client.font, text, x, y, color);
+                return;
+            } catch (Exception ignored) {
+                cachedDrawer = null;
             }
-        } catch (Exception ignored) {
         }
 
-        try {
-            for (Method m : client.font.getClass().getMethods()) {
-                if (m.getName().startsWith("drawWithShadow") || m.getName().equals("method_27521") || m.getName().equals("method_1720")) {
-                    Class<?>[] params = m.getParameterTypes();
-                    if (params.length == 5 && params[1] == String.class && (params[2] == float.class || params[2] == int.class)) {
-                        m.invoke(client.font, context, text, (float) x, (float) y, color);
-                        return;
-                    }
-                    if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
-                        Object textObj = net.minecraft.network.chat.Component.literal(text);
-                        m.invoke(client.font, context, textObj, (float) x, (float) y, color);
-                        return;
-                    }
+        for (Method m : context.getClass().getMethods()) {
+            if (m.getName().startsWith("drawText") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
+                Class<?>[] params = m.getParameterTypes();
+                if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, t, px, py, c);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
+                }
+                if (params.length == 6 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, t, px, py, c, true);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
+                }
+                if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, net.minecraft.network.chat.Component.literal(t), px, py, c, true);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
+                }
+                if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, net.minecraft.network.chat.Component.literal(t), px, py, c);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
                 }
             }
-        } catch (Exception ignored) {
+        }
+
+        for (Method m : client.font.getClass().getMethods()) {
+            if (m.getName().startsWith("drawWithShadow") || m.getName().equals("method_27521") || m.getName().equals("method_1720")) {
+                Class<?>[] params = m.getParameterTypes();
+                if (params.length == 5 && params[1] == String.class && (params[2] == float.class || params[2] == int.class)) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(font, ctx, t, (float) px, (float) py, c);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
+                }
+                if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
+                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(font, ctx, net.minecraft.network.chat.Component.literal(t), (float) px, (float) py, c);
+                    try { cachedDrawer.draw(context, client.font, text, x, y, color); } catch (Exception ignored) {}
+                    return;
+                }
+            }
         }
     }
 }
