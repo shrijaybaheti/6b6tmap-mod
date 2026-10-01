@@ -24,7 +24,7 @@ public class HudOverlay {
             Field eventField = callbackClass.getField("EVENT");
             Object event = eventField.get(null);
             Method registerMethod = null;
-            for (Method m : event.getClass().getMethods()) {
+            for (Method m : Class.forName("net.fabricmc.fabric.api.event.Event").getMethods()) {
                 if (m.getName().equals("register") && m.getParameterCount() == 1) {
                     registerMethod = m;
                     break;
@@ -53,12 +53,23 @@ public class HudOverlay {
         try {
             Class<?> registry = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry");
             Class<?> hudElement = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement");
-            Class<?> identifierClass = Class.forName("net.minecraft.util.Identifier");
-            Object id;
+            Class<?> identifierClass;
+            try {
+                identifierClass = Class.forName("net.minecraft.util.Identifier");
+            } catch (ClassNotFoundException e) {
+                identifierClass = Class.forName("net.minecraft.resources.ResourceLocation");
+            }
+            Object id = null;
             try {
                 id = identifierClass.getMethod("of", String.class, String.class).invoke(null, "map6b6t", "status");
-            } catch (NoSuchMethodException e) {
-                id = identifierClass.getConstructor(String.class, String.class).newInstance("map6b6t", "status");
+            } catch (Exception e1) {
+                try {
+                    id = identifierClass.getMethod("fromNamespaceAndPath", String.class, String.class).invoke(null, "map6b6t", "status");
+                } catch (Exception e2) {
+                    try {
+                        id = identifierClass.getConstructor(String.class, String.class).newInstance("map6b6t", "status");
+                    } catch (Exception e3) {}
+                }
             }
             Object element = java.lang.reflect.Proxy.newProxyInstance(
                 hudElement.getClassLoader(),
