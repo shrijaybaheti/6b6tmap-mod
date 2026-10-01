@@ -48,7 +48,7 @@ public final class UploadService {
         scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
                 scanWorkers, scanWorkers,
                 0L, TimeUnit.MILLISECONDS,
-                new java.util.concurrent.ArrayBlockingQueue<>(512),
+                new java.util.concurrent.ArrayBlockingQueue<>(4096),
                 new ScanWorkerFactory(),
                 new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
         );

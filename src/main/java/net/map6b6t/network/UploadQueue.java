@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class UploadQueue {
-    public static final int CAPACITY = 2048;
-    public static final int PAUSE_SCAN_AT = 1536;
+    public static final int CAPACITY = 100000;
+    public static final int PAUSE_SCAN_AT = 95000;
 
     public enum OfferResult {
         ACCEPTED,
