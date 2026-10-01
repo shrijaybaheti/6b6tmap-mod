@@ -237,7 +237,7 @@ public class SpawnMapMod implements ClientModInitializer {
     if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
     String dimension = EnvBridge.getDimension(world);
     String serverVer = resolveServerVersion(client);
-    List<ScannedBlock> snapshot = ChunkScanner.snapshotAndScan(chunk);
+    net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = ChunkScanner.snapshotAndScan(chunk);
     UploadService.get().submitAsyncScan(dimension, net.map6b6t.EnvBridge.getChunkX(pos), net.map6b6t.EnvBridge.getChunkZ(pos), playerName, serverVer, snapshot, (k, v) -> lastSeenHash.put(k, v));
 }
 

@@ -265,7 +265,7 @@ public class SpawnMapMod implements ClientModInitializer {
         String dimension = client.world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        List<ScannedBlock> snapshot = ChunkScanner.snapshotAndScan(chunk);
+        PrimitiveChunkSnapshot snapshot = ChunkScanner.snapshotAndScan(chunk);
 
         UploadService.get().submitAsyncScan(
                 dimension,
