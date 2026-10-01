@@ -44,7 +44,7 @@ final class ChunkUploader {
             byte[] gzipped = gzip(rawJson);
             return sendGzipDirect(url, gzipped);
         } catch (Exception e) {
-            return UploadResult.FAILED;
+            return UploadResult.network(e);
         }
     }
 
