@@ -129,7 +129,7 @@ public final class UploadService {
                 }
 
                 ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, scannedBlocks, payloadHash, encodedGzip)
+                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip)
                         : job;
 
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
