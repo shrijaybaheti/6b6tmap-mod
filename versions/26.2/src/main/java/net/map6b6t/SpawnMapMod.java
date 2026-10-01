@@ -220,76 +220,26 @@ public class SpawnMapMod implements ClientModInitializer {
     }
 
     public void handleIncomingServerChunk(LevelChunk chunk) {
-        if (chunk == null) return;
-        Minecraft client = Minecraft.getInstance();
-        ClientLevel world = client.level;
-        if (world == null) return;
-        if (world == null || chunk == null) {
-            return;
-        }
-
-        Minecraft client = Minecraft.getInstance();
-        if (!is6b6tServer(client)) {
-            return;
-        }
-
-        ModConfig config = ConfigManager.get();
-        if (!config.enabled) {
-            return;
-        }
-
-        if (world != lastWorld) {
-            resetSessionCache();
-            lastWorld = world;
-            cachedDimension = null;
-            cachedPlayerName = null;
-        }
-
-        if (lastSeenHash.size() > LAST_SEEN_MAX) {
-            lastSeenHash.clear();
-        }
-
-        ChunkPos pos = chunk.getPos();
-        if (!config.isChunkWithinSpawn(net.map6b6t.EnvBridge.getChunkX(pos), net.map6b6t.EnvBridge.getChunkZ(pos))) {
-            return;
-        }
-
-        if (UploadService.get().shouldPauseScanning()) {
-            return;
-        }
-
-        LocalPlayer player = client.player;
-        if (cachedPlayerName == null) {
-            cachedPlayerName = resolvePlayerName(player);
-        }
-        String playerName = cachedPlayerName;
-        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
-            playerName = config.playerOverride.trim();
-        }
-        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
-            UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
-            return;
-        }
-
-        if (cachedDimension == null) {
-            cachedDimension = net.map6b6t.EnvBridge.getDimension(world);
-        }
-        String dimension = cachedDimension;
-        String serverVer = resolveServerVersion(client);
-
-        net.minecraft.world.level.chunk.LevelChunkSection[] sections = chunk.getSections().clone();
-        int bottomY = net.map6b6t.EnvBridge.getMinBuildHeight(chunk);
-
-        UploadService.get().submitAsyncScan(
-                dimension,
-                net.map6b6t.EnvBridge.getChunkX(pos),
-                net.map6b6t.EnvBridge.getChunkZ(pos),
-                playerName,
-                serverVer,
-                snapshot,
-                lastSeenHash::put
-        );
-    }
+    if (chunk == null) return;
+    Minecraft client = Minecraft.getInstance();
+    ClientLevel world = client.level;
+    if (world == null || !is6b6tServer(client)) return;
+    ModConfig config = ConfigManager.get();
+    if (!config.enabled) return;
+    if (world != lastWorld) { resetSessionCache(); lastWorld = world; cachedDimension = null; cachedPlayerName = null; }
+    if (lastSeenHash.size() > LAST_SEEN_MAX) lastSeenHash.clear();
+    ChunkPos pos = chunk.getPos();
+    if (!config.isChunkWithinSpawn(net.map6b6t.EnvBridge.getChunkX(pos), net.map6b6t.EnvBridge.getChunkZ(pos))) return;
+    if (UploadService.get().shouldPauseScanning()) return;
+    LocalPlayer player = client.player;
+    String playerName = resolvePlayerName(player);
+    if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) playerName = config.playerOverride.trim();
+    if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
+    String dimension = EnvBridge.getDimension(world);
+    String serverVer = resolveServerVersion(client);
+    List<ScannedBlock> snapshot = ChunkScanner.snapshotAndScan(chunk);
+    UploadService.get().submitAsyncScan(dimension, net.map6b6t.EnvBridge.getChunkX(pos), net.map6b6t.EnvBridge.getChunkZ(pos), playerName, serverVer, snapshot, (k, v) -> lastSeenHash.put(k, v));
+}
 
     private static String resolveServerVersion(Minecraft client) {
         if (net.map6b6t.EnvBridge.getServerVersion(client) != null) {
@@ -327,5 +277,7 @@ public class SpawnMapMod implements ClientModInitializer {
         return "";
     }
 }
+
+
 
 

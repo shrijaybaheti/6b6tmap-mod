@@ -18,7 +18,7 @@ public class ClientPlayNetworkHandlerMixin {
         if (handler.getWorld() == null) return;
         
         // Grab the chunk AFTER Minecraft has natively parsed the packet.
-        WorldChunk chunk = handler.getWorld().getChunk(packet.getX(), packet.getZ());
+        WorldChunk chunk = handler.getWorld().getChunk(packet.getChunkX(), packet.getChunkZ());
         if (chunk != null) {
             SpawnMapMod.getInstance().handleIncomingServerChunk(chunk);
         }

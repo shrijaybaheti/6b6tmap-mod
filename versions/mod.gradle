@@ -64,7 +64,6 @@ java {
     withSourcesJar()
     sourceCompatibility = javaVer
     targetCompatibility = javaVer
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version.toString()))
-    }
+    
 }
+
