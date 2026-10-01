@@ -162,10 +162,12 @@ public final class UploadService {
             return UploadQueue.OfferResult.REJECTED;
         }
         int payloadHash = ChunkSubmission.contentHash(blocks);
+        String preEncodedJson = null;
         byte[] encodedGzip = null;
         try {
             ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
             byte[] rawJson = ChunkUploader.encodeSingle(temp);
+            preEncodedJson = new String(rawJson, StandardCharsets.UTF_8);
             encodedGzip = ChunkUploader.gzip(rawJson);
         } catch (Exception ignored) {
         }
@@ -175,9 +177,10 @@ public final class UploadService {
                 chunkZ,
                 playerName,
                 serverVersion,
-                blocks,
+                encodedGzip != null ? null : blocks,
                 payloadHash,
-                encodedGzip
+                encodedGzip,
+                preEncodedJson
         );
         UploadQueue.OfferResult result = queue.offer(job);
         switch (result) {
