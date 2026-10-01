@@ -38,7 +38,15 @@ final class ChunkUploader {
     }
 
     UploadResult sendBatch(List<ChunkSubmission> jobs) {
-        return send(batchUrl(ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl)), encodeBatch(jobs));
+        String url = batchUrl(ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl));
+        try {
+            byte[] rawJson = encodeBatch(jobs);
+            byte[] gzipped = gzip(rawJson);
+            return sendGzipDirect(url, gzipped);
+        } catch (Exception e) {
+            LOGGER.error("Failed to gzip batch payload", e);
+            return UploadResult.FAILED;
+        }
     }
 
     private UploadResult sendGzipDirect(String url, byte[] gzipBytes) {
