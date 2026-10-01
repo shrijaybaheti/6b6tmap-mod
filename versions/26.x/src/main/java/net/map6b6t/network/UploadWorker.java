@@ -107,6 +107,7 @@ final class UploadWorker implements Runnable {
                     stats.setLastError(item.error);
                 } else {
                     queue.complete(job);
+                    DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                     stats.markFailed(item.error);
                     LOGGER.warn("Dropping chunk {},{} after non-retryable failure: {}", job.chunkX, job.chunkZ, item.error);
                 }
@@ -139,6 +140,7 @@ final class UploadWorker implements Runnable {
                 stats.markRetried();
             } else {
                 queue.complete(job);
+                DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                 stats.markFailed(result.error);
                 LOGGER.warn("Dropping chunk {},{} after non-retryable failure: {}", job.chunkX, job.chunkZ, result.error);
             }
