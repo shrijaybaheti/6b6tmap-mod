@@ -25,11 +25,11 @@ public class ChunkScanner {
         return cached;
     }
 
-    public static List<ScannedBlock> scanChunk(WorldChunk chunk) {
-        return scanChunkSections(chunk.getSectionArray(), chunk.getBottomY());
+    public static List<ScannedBlock> snapshotAndScan(WorldChunk chunk) {
+        return snapshotAndScanSections(chunk.getSectionArray(), chunk.getBottomY());
     }
 
-    public static List<ScannedBlock> scanChunkSections(ChunkSection[] sections, int bottomY) {
+    public static List<ScannedBlock> snapshotAndScanSections(ChunkSection[] sections, int bottomY) {
         List<ScannedBlock> list = new ArrayList<>(4096);
         if (sections == null) {
             return list;

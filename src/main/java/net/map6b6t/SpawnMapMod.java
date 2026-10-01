@@ -28,9 +28,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SpawnMapMod implements ClientModInitializer {
+    private static SpawnMapMod INSTANCE;
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
     private static final int LAST_SEEN_MAX = 500_000;
     private ClientWorld lastWorld = null;
+
+    public SpawnMapMod() {
+        INSTANCE = this;
+    }
+
+    public static SpawnMapMod getInstance() {
+        return INSTANCE;
+    }
 
     public static Text createText(String str) {
         try {
@@ -57,7 +66,6 @@ public class SpawnMapMod implements ClientModInitializer {
         UploadService.get().start();
         net.map6b6t.gui.HudOverlay.register();
 
-        ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
@@ -211,13 +219,13 @@ public class SpawnMapMod implements ClientModInitializer {
         return false;
     }
 
-    private void onChunkLoad(ClientWorld world, WorldChunk chunk) {
-        if (world == null || chunk == null) {
+    public void handleIncomingServerChunk(WorldChunk chunk) {
+        if (chunk == null) {
             return;
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!is6b6tServer(client)) {
+        if (client.world == null || !is6b6tServer(client)) {
             return;
         }
 
@@ -226,9 +234,9 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        if (world != lastWorld) {
+        if (client.world != lastWorld) {
             resetSessionCache();
-            lastWorld = world;
+            lastWorld = client.world;
         }
 
         if (lastSeenHash.size() > LAST_SEEN_MAX) {
@@ -254,11 +262,10 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = world.getRegistryKey().getValue().toString();
+        String dimension = client.world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        net.minecraft.world.chunk.ChunkSection[] sections = chunk.getSectionArray().clone();
-        int bottomY = chunk.getBottomY();
+        List<ScannedBlock> snapshot = ChunkScanner.snapshotAndScan(chunk);
 
         UploadService.get().submitAsyncScan(
                 dimension,
@@ -266,8 +273,7 @@ public class SpawnMapMod implements ClientModInitializer {
                 pos.z,
                 playerName,
                 serverVer,
-                sections,
-                bottomY,
+                snapshot,
                 lastSeenHash::put
         );
     }
