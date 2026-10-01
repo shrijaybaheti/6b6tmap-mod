@@ -178,17 +178,21 @@ final class ChunkUploader {
     private static byte[] encodeBatch(List<ChunkSubmission> jobs) {
         int estimate = 64;
         for (ChunkSubmission job : jobs) {
-            estimate += 64 + job.blocks.size() * 48;
+            estimate += job.preEncodedJson != null ? job.preEncodedJson.length() + 1 : (64 + (job.blocks != null ? job.blocks.size() : 0) * 48);
         }
         StringBuilder sb = new StringBuilder(estimate);
         sb.append("{\"protocolVersion\":").append(Protocol.VERSION).append(",\"chunks\":[");
         for (int i = 0; i < jobs.size(); i++) {
             if (i > 0) sb.append(',');
             ChunkSubmission job = jobs.get(i);
-            sb.append('{');
-            appendEnvelopeFields(sb, job);
-            appendBlocks(sb, job.blocks);
-            sb.append('}');
+            if (job.preEncodedJson != null) {
+                sb.append(job.preEncodedJson);
+            } else {
+                sb.append('{');
+                appendEnvelopeFields(sb, job);
+                appendBlocks(sb, job.blocks);
+                sb.append('}');
+            }
         }
         sb.append("]}");
         return sb.toString().getBytes(StandardCharsets.UTF_8);

@@ -14,6 +14,7 @@ public final class ChunkSubmission {
     public final List<ScannedBlock> blocks;
     public final int contentHash;
     public final byte[] preEncodedGzip;
+    public final String preEncodedJson;
     public final Object proof;
     public final Key key;
 
@@ -29,7 +30,7 @@ public final class ChunkSubmission {
             List<ScannedBlock> blocks,
             int contentHash
     ) {
-        this(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, contentHash, null);
+        this(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, contentHash, null, null);
     }
 
     public ChunkSubmission(
@@ -40,7 +41,8 @@ public final class ChunkSubmission {
             String serverVersion,
             List<ScannedBlock> blocks,
             int contentHash,
-            byte[] preEncodedGzip
+            byte[] preEncodedGzip,
+            String preEncodedJson
     ) {
         this.dimension = dimension == null || dimension.isBlank() ? "minecraft:overworld" : dimension;
         this.chunkX = chunkX;
@@ -50,6 +52,7 @@ public final class ChunkSubmission {
         this.blocks = blocks;
         this.contentHash = contentHash;
         this.preEncodedGzip = preEncodedGzip;
+        this.preEncodedJson = preEncodedJson;
         this.proof = null;
         this.key = new Key(this.dimension, chunkX, chunkZ);
         this.nextAttemptAtMs = 0L;

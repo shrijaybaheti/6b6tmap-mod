@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class UploadService {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final UploadService INSTANCE = new UploadService();
-    private static final int WORKERS = 12;
+    private static final int WORKERS = 4;
     private static final long STATS_EVERY_MS = 15_000L;
 
     private static final int SCAN_WORKERS = 2;
@@ -121,15 +121,17 @@ public final class UploadService {
                         payloadHash
                 );
 
+                String preEncodedJson = null;
                 byte[] encodedGzip = null;
                 try {
                     byte[] rawJson = ChunkUploader.encodeSingle(job);
+                    preEncodedJson = new String(rawJson, StandardCharsets.UTF_8);
                     encodedGzip = ChunkUploader.gzip(rawJson);
                 } catch (Exception ignored) {
                 }
 
                 ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip)
+                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip, preEncodedJson)
                         : job;
 
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
