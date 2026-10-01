@@ -232,6 +232,9 @@ final class ChunkUploader {
                 long val = blocks[i];
                 int x = (int) (val & 0xF);
                 int y = (int) ((val >>> 4) & 0x1FFF);
+                if ((y & 0x1000) != 0) {
+                    y |= 0xFFFFE000;
+                }
                 int z = (int) ((val >>> 17) & 0xF);
                 int rawId = (int) (val >>> 21);
                 String blockName = net.map6b6t.scanner.ChunkScanner.getBlockIdStringFromRaw(rawId);
