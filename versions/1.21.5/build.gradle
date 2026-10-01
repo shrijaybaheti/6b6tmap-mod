@@ -1,0 +1,5 @@
+plugins {
+    id 'fabric-loom'
+}
+
+apply from: '../mod.gradle'

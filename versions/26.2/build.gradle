@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'net.fabricmc.fabric-loom'
+}
+version = rootProject.mod_version
+group = rootProject.maven_group
+base {
+    archivesName = "map6b6t-26.x+"
+}
+dependencies {
+    minecraft "com.mojang:minecraft:26.1.2"
+    implementation "net.fabricmc:fabric-loader:0.19.5"
+    implementation "net.fabricmc.fabric-api:fabric-api:0.147.0+26.1.2"
+}
+sourceSets {
+    main {
+        java.srcDirs = ['src/main/java']
+        resources.srcDirs = ['../../src/main/resources']
+    }
+}
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand(
+            version: project.version,
+            minecraft_dependency: ">=26.0.0 <27.0.0",
+            java_version: "17"
+        )
+    }
+}
