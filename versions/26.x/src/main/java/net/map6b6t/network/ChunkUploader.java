@@ -31,8 +31,10 @@ final class ChunkUploader {
 
     UploadResult sendSingle(ChunkSubmission job) {
         String url = ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl);
-        if (job.preEncodedGzip != null) {
-            return sendGzipDirect(url, job.preEncodedGzip);
+        byte[] gzipped = job.preEncodedGzip;
+        if (gzipped == null) gzipped = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
+        if (gzipped != null) {
+            return sendGzipDirect(url, gzipped);
         }
         return send(url, encodeSingle(job));
     }
@@ -194,8 +196,10 @@ final class ChunkUploader {
         for (int i = 0; i < jobs.size(); i++) {
             if (i > 0) sb.append(',');
             ChunkSubmission job = jobs.get(i);
-            if (job.preEncodedGzip != null) {
-                sb.append(unzipToString(job.preEncodedGzip));
+            byte[] gzip = job.preEncodedGzip;
+            if (gzip == null) gzip = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
+            if (gzip != null) {
+                sb.append(unzipToString(gzip));
             } else {
                 sb.append('{');
                 appendEnvelopeFields(sb, job);

@@ -10,7 +10,7 @@ import java.util.Set;
 
 final class UploadWorker implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
-    private static final int MAX_BATCH = 16;
+    private static final int MAX_BATCH = 100;
 
     private final UploadQueue queue;
     private final ChunkUploader uploader;
@@ -95,6 +95,7 @@ final class UploadWorker implements Runnable {
                 UploadResult.Item item = findItem(result.items, job);
                 if (item == null || item.success) {
                     queue.complete(job);
+                    DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                     stats.markUploaded(per);
                     service.notifyUploaded(job);
                     continue;
@@ -119,6 +120,7 @@ final class UploadWorker implements Runnable {
             long per = jobs.isEmpty() ? 0 : result.bytesSent / jobs.size();
             for (ChunkSubmission job : jobs) {
                 queue.complete(job);
+                DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                 stats.markUploaded(per);
                 service.notifyUploaded(job);
             }

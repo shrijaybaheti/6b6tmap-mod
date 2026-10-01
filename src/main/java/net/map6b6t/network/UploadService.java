@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class UploadService {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final UploadService INSTANCE = new UploadService();
-    private static final int WORKERS = 4;
+    private static final int WORKERS = 8;
     private static final long STATS_EVERY_MS = 15_000L;
 
     private static final int SCAN_WORKERS = 2;
@@ -124,11 +124,14 @@ public final class UploadService {
                 try {
                     byte[] rawJson = ChunkUploader.encodeSingle(job);
                     encodedGzip = ChunkUploader.gzip(rawJson);
+                    if (encodedGzip != null) {
+                        DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
+                    }
                 } catch (Exception ignored) {
                 }
 
                 ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip)
+                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null)
                         : job;
 
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
@@ -163,6 +166,9 @@ public final class UploadService {
             ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
             byte[] rawJson = ChunkUploader.encodeSingle(temp);
             encodedGzip = ChunkUploader.gzip(rawJson);
+            if (encodedGzip != null) {
+                DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
+            }
         } catch (Exception ignored) {
         }
         ChunkSubmission job = new ChunkSubmission(
@@ -173,7 +179,7 @@ public final class UploadService {
                 serverVersion,
                 encodedGzip != null ? null : blocks,
                 payloadHash,
-                encodedGzip
+                null
         );
         UploadQueue.OfferResult result = queue.offer(job);
         switch (result) {
