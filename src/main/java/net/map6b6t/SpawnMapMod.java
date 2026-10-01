@@ -91,6 +91,15 @@ public class SpawnMapMod implements ClientModInitializer {
                         return 1;
                     })
                 )
+                .then(ClientCommandManager.literal("hud")
+                    .executes(context -> {
+                        ModConfig config = ConfigManager.get();
+                        config.showHud = !config.showHud;
+                        ConfigManager.save();
+                        context.getSource().sendFeedback(createText("HUD " + (config.showHud ? "shown" : "hidden")).copy().formatted(Formatting.AQUA));
+                        return 1;
+                    })
+                )
                 .then(ClientCommandManager.literal("server")
                     .then(ClientCommandManager.argument("url", StringArgumentType.greedyString())
                         .executes(context -> {

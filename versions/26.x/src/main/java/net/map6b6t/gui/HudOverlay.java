@@ -78,7 +78,7 @@ public class HudOverlay {
         }
 
         ModConfig config = ConfigManager.get();
-        if (!config.enabled) {
+        if (!config.enabled || !config.showHud) {
             return;
         }
 
@@ -129,7 +129,7 @@ public class HudOverlay {
         }
 
         for (Method m : context.getClass().getMethods()) {
-            if (m.getName().startsWith("drawText") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
+            if (m.getName().startsWith("drawText") || m.getName().startsWith("drawString") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
                 Class<?>[] params = m.getParameterTypes();
                 if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
                     cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, t, px, py, c);

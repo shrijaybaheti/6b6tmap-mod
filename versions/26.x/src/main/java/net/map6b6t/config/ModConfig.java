@@ -9,6 +9,7 @@ public class ModConfig {
     public String playerOverride = "";
     public int spawnRadius = DEFAULT_SPAWN_RADIUS;
     public boolean recordWorld = false;
+    public boolean showHud = true;
     public int scanIntervalTicks = 2;
 
     public boolean isLocalServerUrl() {

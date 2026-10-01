@@ -96,6 +96,15 @@ public class SpawnMapMod implements ClientModInitializer {
                         return 1;
                     })
                 )
+                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("hud")
+                    .executes(context -> {
+                        ModConfig config = ConfigManager.get();
+                        config.showHud = !config.showHud;
+                        ConfigManager.save();
+                        context.getSource().sendFeedback(createText("HUD " + (config.showHud ? "shown" : "hidden")).copy().withStyle(ChatFormatting.AQUA));
+                        return 1;
+                    })
+                )
                 .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("server")
                     .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument("url", StringArgumentType.greedyString())
                         .executes(context -> {
