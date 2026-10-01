@@ -23,7 +23,13 @@ public class HudOverlay {
             Class<?> callbackClass = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback");
             Field eventField = callbackClass.getField("EVENT");
             Object event = eventField.get(null);
-            Method registerMethod = event.getClass().getMethod("register", Object.class);
+            Method registerMethod = null;
+            for (Method m : event.getClass().getMethods()) {
+                if (m.getName().equals("register") && m.getParameterCount() == 1) {
+                    registerMethod = m;
+                    break;
+                }
+            }
 
             Object proxy = Proxy.newProxyInstance(
                 callbackClass.getClassLoader(),
@@ -36,8 +42,10 @@ public class HudOverlay {
                 }
             );
 
-            registerMethod.invoke(event, proxy);
-            return;
+            if (registerMethod != null) {
+                registerMethod.invoke(event, proxy);
+                return;
+            }
         } catch (Exception ignored) {
         }
 
@@ -61,11 +69,16 @@ public class HudOverlay {
                     return null;
                 }
             );
+            Object registryInstance = null;
             try {
-                registry.getMethod("addLast", identifierClass, hudElement).invoke(null, id, element);
+                registryInstance = registry.getField("INSTANCE").get(null);
+            } catch (Exception ignored) {}
+            
+            try {
+                registry.getMethod("addLast", identifierClass, hudElement).invoke(registryInstance, id, element);
             } catch (NoSuchMethodException e) {
                 registry.getMethod("attachElementAfter", identifierClass, identifierClass, hudElement)
-                        .invoke(null, id, id, element);
+                        .invoke(registryInstance, id, id, element);
             }
         } catch (Exception ignored) {
         }
