@@ -85,11 +85,7 @@ public class SpawnMapMod implements ClientModInitializer {
     }
 
 
-    private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
-        if (networkChunks.remove(chunk.getPos().toLong())) {
-            handleIncomingServerChunk(chunk);
-        }
-    }
+    
 
 
     public SpawnMapMod() {
@@ -126,7 +122,7 @@ public class SpawnMapMod implements ClientModInitializer {
         net.map6b6t.gui.HudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
-        ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
+        // Removed CHUNK_LOAD hook
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("6b6tmap")
@@ -279,62 +275,7 @@ public class SpawnMapMod implements ClientModInitializer {
         return false;
     }
 
-    public void handleIncomingServerChunk(WorldChunk chunk) {
-        if (chunk == null) {
-            return;
-        }
-
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null || !is6b6tServer(client)) {
-            return;
-        }
-
-        ModConfig config = ConfigManager.get();
-        if (!config.enabled) {
-            return;
-        }
-
-        if (client.world != lastWorld) {
-            resetSessionCache();
-            lastWorld = client.world;
-        }
-
-        if (lastSeenHash.size() > LAST_SEEN_MAX) {
-            lastSeenHash.clear();
-        }
-
-        ChunkPos pos = chunk.getPos();
-        if (!config.isChunkWithinSpawn(pos.x, pos.z)) {
-            return;
-        }
-
-        if (UploadService.get().shouldPauseScanning()) {
-            return;
-        }
-
-        ClientPlayerEntity player = client.player;
-        String playerName = resolvePlayerName(player);
-        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
-            playerName = config.playerOverride.trim();
-        }
-        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
-            UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
-            return;
-        }
-
-        String dimension = client.world.getRegistryKey().getValue().toString();
-        String serverVer = resolveServerVersion(client);
-
-        UploadService.get().submitAsyncScan(
-                dimension,
-                pos.x,
-                pos.z,
-                playerName,
-                serverVer,
-                chunk,
-                lastSeenHash::put
-        );
-    }
+    
 
     private static String resolveServerVersion(MinecraftClient client) {
         if (client.getCurrentServerEntry() != null && client.getCurrentServerEntry().version != null) {
@@ -372,4 +313,5 @@ public class SpawnMapMod implements ClientModInitializer {
         return "";
     }
 }
+
 
