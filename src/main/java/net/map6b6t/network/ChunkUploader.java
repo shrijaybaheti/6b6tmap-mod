@@ -229,7 +229,7 @@ final class ChunkUploader {
         return submitUrl;
     }
 
-            static byte[] encodeSingle(ChunkSubmission job) {
+    static byte[] encodeSingle(ChunkSubmission job) {
         JsonObject obj = new JsonObject();
         obj.addProperty("dimension", job.dimension);
         obj.addProperty("chunkX", job.chunkX);
@@ -242,39 +242,6 @@ final class ChunkUploader {
         }
 
         return obj.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    }
-
-            
-            encodedBlocks[validCount++] = (x << 28) | (z << 24) | (((y + 64) & 0x3FF) << 14) | (pIdx & 0x3FFF);
-        }
-        
-        int paletteBytesSize = 0;
-        byte[][] pBytesArray = new byte[paletteList.size()][];
-        for (int i = 0; i < paletteList.size(); i++) {
-            byte[] pBytes = paletteList.get(i).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            pBytesArray[i] = pBytes;
-            paletteBytesSize += 1 + pBytes.length;
-        }
-        
-        int capacity = 1 + 4 + 4 + 2 + paletteBytesSize + 4 + (validCount * 4);
-        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(capacity).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-        
-        buf.put((byte) 2);
-        buf.putInt(job.chunkX);
-        buf.putInt(job.chunkZ);
-        buf.putShort((short) paletteList.size());
-        
-        for (byte[] pBytes : pBytesArray) {
-            buf.put((byte) pBytes.length);
-            buf.put(pBytes);
-        }
-        
-        buf.putInt(validCount);
-        for (int i = 0; i < validCount; i++) {
-            buf.putInt(encodedBlocks[i]);
-        }
-        
-        return buf.array();
     }
 
     private static String unzipToString(byte[] gzipBytes) throws IOException {
@@ -294,61 +261,11 @@ final class ChunkUploader {
             if (gzip != null) {
                 sb.append(unzipToString(gzip));
             } else {
-                sb.append('{');
-                appendEnvelopeFields(sb, job);
-                appendBlocks(sb, job.blocks);
-                sb.append('}');
+                sb.append(new String(encodeSingle(job), StandardCharsets.UTF_8));
             }
         }
         sb.append("]}");
         return sb.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static void appendEnvelopeStart(StringBuilder sb, ChunkSubmission job) {
-        sb.append('{');
-        appendEnvelopeFields(sb, job);
-    }
-
-    private static void appendEnvelopeFields(StringBuilder sb, ChunkSubmission job) {
-        sb.append("\"protocolVersion\":").append(Protocol.VERSION)
-          .append(",\"player\":\"").append(escape(job.playerName))
-          .append("\",\"chunkX\":").append(job.chunkX)
-          .append(",\"chunkZ\":").append(job.chunkZ)
-          .append(",\"dimension\":\"").append(escape(job.dimension))
-          .append("\",\"serverVersion\":\"").append(escape(job.serverVersion))
-          .append("\",");
-    }
-
-    private static void appendBlocks(StringBuilder sb, net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot) {
-        sb.append("\"blocks\":[");
-        if (snapshot != null) {
-            long[] blocks = snapshot.blocks;
-            int size = snapshot.size;
-            for (int i = 0; i < size; i++) {
-                if (i > 0) sb.append(',');
-                long val = blocks[i];
-                int x = (int) (val & 0xF);
-                int y = (int) ((val >>> 4) & 0x1FFF);
-                if ((y & 0x1000) != 0) {
-                    y |= 0xFFFFE000;
-                }
-                int z = (int) ((val >>> 17) & 0xF);
-                int rawId = (int) (val >>> 21);
-                String blockName = net.map6b6t.scanner.ChunkScanner.getBlockIdStringFromRaw(rawId);
-                sb.append("{\"x\":").append(x)
-                  .append(",\"y\":").append(y)
-                  .append(",\"z\":").append(z)
-                  .append(",\"block\":\"").append(escape(blockName)).append("\"}");
-            }
-        }
-        sb.append(']');
-    }
-
-    private static String escape(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     static byte[] gzip(byte[] input) throws IOException {
@@ -359,5 +276,3 @@ final class ChunkUploader {
         return out.toByteArray();
     }
 }
-
-
