@@ -50,7 +50,7 @@ public final class UploadService {
                 0L, TimeUnit.MILLISECONDS,
                 new java.util.concurrent.ArrayBlockingQueue<>(1024),
                 new ScanWorkerFactory(),
-                new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()
+                new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
         );
         httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -98,7 +98,7 @@ public final class UploadService {
             int chunkZ,
             String playerName,
             String serverVersion,
-            net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot,
+            net.minecraft.world.chunk.WorldChunk chunk,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
@@ -106,6 +106,7 @@ public final class UploadService {
         }
         scanExecutor.execute(() -> {
             try {
+                net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
                 if (snapshot == null || snapshot.size == 0) {
                     return;
                 }

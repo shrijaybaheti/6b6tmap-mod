@@ -278,15 +278,13 @@ public class SpawnMapMod implements ClientModInitializer {
         String dimension = client.world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = ChunkScanner.snapshotAndScan(chunk);
-
         UploadService.get().submitAsyncScan(
                 dimension,
                 pos.x,
                 pos.z,
                 playerName,
                 serverVer,
-                snapshot,
+                chunk,
                 lastSeenHash::put
         );
     }

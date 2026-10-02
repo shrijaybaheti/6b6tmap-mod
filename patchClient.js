@@ -1,0 +1,73 @@
+const fs = require('fs');
+const file = 'd:\\projects\\6b6tmapprebeta\\Minecraft_Mods\\src\\main\\java\\net\\map6b6t\\network\\ChunkUploader.java';
+let text = fs.readFileSync(file, 'utf8');
+
+const newEncode = `    static byte[] encodeSingle(ChunkSubmission job) {
+        if (job.blocks == null) return new byte[0];
+        
+        java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
+        java.util.List<String> paletteList = new java.util.ArrayList<>();
+        
+        long[] blocks = job.blocks.blocks;
+        int size = job.blocks.size;
+        
+        int[] encodedBlocks = new int[size];
+        int validCount = 0;
+        
+        for (int i = 0; i < size; i++) {
+            long val = blocks[i];
+            int x = (int) (val & 0xF);
+            int y = (int) ((val >>> 4) & 0x1FFF);
+            int z = (int) ((val >>> 17) & 0xF);
+            int rawId = (int) ((val >>> 21) & 0xFFFFFFFFL);
+            String bName = net.map6b6t.scanner.ChunkScanner.getBlockIdStringFromRaw(rawId);
+            
+            Integer pIdx = paletteMap.get(bName);
+            if (pIdx == null) {
+                pIdx = paletteList.size();
+                paletteMap.put(bName, pIdx);
+                paletteList.add(bName);
+            }
+            
+            encodedBlocks[validCount++] = (x << 28) | (z << 24) | (((y + 64) & 0x3FF) << 14) | (pIdx & 0x3FFF);
+        }
+        
+        int paletteBytesSize = 0;
+        byte[][] pBytesArray = new byte[paletteList.size()][];
+        for (int i = 0; i < paletteList.size(); i++) {
+            byte[] pBytes = paletteList.get(i).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            pBytesArray[i] = pBytes;
+            paletteBytesSize += 1 + pBytes.length;
+        }
+        
+        int capacity = 1 + 4 + 4 + 2 + paletteBytesSize + 4 + (validCount * 4);
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(capacity).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        
+        buf.put((byte) 2);
+        buf.putInt(job.chunkX);
+        buf.putInt(job.chunkZ);
+        buf.putShort((short) paletteList.size());
+        
+        for (byte[] pBytes : pBytesArray) {
+            buf.put((byte) pBytes.length);
+            buf.put(pBytes);
+        }
+        
+        buf.putInt(validCount);
+        for (int i = 0; i < validCount; i++) {
+            buf.putInt(encodedBlocks[i]);
+        }
+        
+        return buf.array();
+    }`;
+
+let idx = text.indexOf('static byte[] encodeSingle(ChunkSubmission job) {');
+if (idx > -1) {
+  let afterIdx = text.indexOf('private static String unzipToString', idx);
+  let before = text.substring(0, idx);
+  let after = text.substring(afterIdx);
+  fs.writeFileSync(file, before + newEncode + '\n\n    ' + after);
+  console.log('patched ChunkUploader.java');
+} else {
+  console.log('not found');
+}
