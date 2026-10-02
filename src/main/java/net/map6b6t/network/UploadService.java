@@ -155,112 +155,9 @@ public final class UploadService {
         });
     }
 
-    public void submitAsyncScan(
-            String dimension,
-            int chunkX,
-            int chunkZ,
-            String playerName,
-            String serverVersion,
-            net.minecraft.world.chunk.WorldChunk chunk,
-            java.util.function.BiConsumer<Long, Integer> onHashComputed
-    ) {
-        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
-            return;
-        }
-        scanExecutor.execute(() -> {
-            try {
-                net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
-                if (snapshot == null || snapshot.size == 0) {
-                    return;
-                }
-                int payloadHash = ChunkSubmission.contentHash(snapshot);
-                long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
-                if (onHashComputed != null) {
-                    onHashComputed.accept(chunkKey, payloadHash);
-                }
+    
 
-                ChunkSubmission job = new ChunkSubmission(
-                        dimension,
-                        chunkX,
-                        chunkZ,
-                        playerName,
-                        serverVersion,
-                        snapshot,
-                        payloadHash
-                );
-
-                byte[] encodedGzip = null;
-                try {
-                    byte[] rawJson = ChunkUploader.encodeSingle(job);
-                    encodedGzip = ChunkUploader.gzip(rawJson);
-                    if (encodedGzip != null) {
-                        DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
-                    }
-                } catch (Exception ignored) {
-                }
-
-                ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null)
-                        : job;
-
-                UploadQueue.OfferResult result = queue.offer(finalizedJob);
-                switch (result) {
-                    case DEDUPLICATED -> stats.markDeduplicated();
-                    case REPLACED -> stats.markReplaced();
-                    default -> {
-                    }
-                }
-                stats.setQueueSize(queue.size());
-                stats.setUploading(queue.uploadingCount());
-            } catch (Exception e) {
-                LOGGER.warn("Async chunk scan failed for {},{}: {}", chunkX, chunkZ, e.toString());
-            }
-        });
-    }
-
-    public UploadQueue.OfferResult submit(
-            String dimension,
-            int chunkX,
-            int chunkZ,
-            String playerName,
-            String serverVersion,
-            net.map6b6t.scanner.PrimitiveChunkSnapshot blocks
-    ) {
-        if (!running.get() || blocks == null || blocks.size == 0) {
-            return UploadQueue.OfferResult.REJECTED;
-        }
-        int payloadHash = ChunkSubmission.contentHash(blocks);
-        byte[] encodedGzip = null;
-        try {
-            ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
-            byte[] rawJson = ChunkUploader.encodeSingle(temp);
-            encodedGzip = ChunkUploader.gzip(rawJson);
-            if (encodedGzip != null) {
-                DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
-            }
-        } catch (Exception ignored) {
-        }
-        ChunkSubmission job = new ChunkSubmission(
-                dimension,
-                chunkX,
-                chunkZ,
-                playerName,
-                serverVersion,
-                encodedGzip != null ? null : blocks,
-                payloadHash,
-                null
-        );
-        UploadQueue.OfferResult result = queue.offer(job);
-        switch (result) {
-            case DEDUPLICATED -> stats.markDeduplicated();
-            case REPLACED -> stats.markReplaced();
-            default -> {
-            }
-        }
-        stats.setQueueSize(queue.size());
-        stats.setUploading(queue.uploadingCount());
-        return result;
-    }
+    
 
     public boolean shouldPauseScanning() {
         return !running.get() || queue.shouldPauseScanning();
@@ -343,5 +240,6 @@ public final class UploadService {
         }
     }
 }
+
 
 
