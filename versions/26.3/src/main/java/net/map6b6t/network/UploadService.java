@@ -89,11 +89,11 @@ public final class UploadService {
 
     public void submitAsyncScan(
             String dimension,
+            net.minecraft.world.level.chunk.LevelChunk chunk,
             int chunkX,
             int chunkZ,
             String playerName,
             String serverVersion,
-            net.minecraft.world.level.chunk.LevelChunk chunk,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
