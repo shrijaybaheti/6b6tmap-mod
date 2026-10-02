@@ -34,6 +34,19 @@ public class SpawnMapMod implements ClientModInitializer {
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
     private static final int LAST_SEEN_MAX = 500_000;
     private ClientLevel lastWorld = null;
+    private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    public void markChunkReceived(int x, int z) {
+        networkChunks.add(net.map6b6t.EnvBridge.asLong(x, z));
+    }
+
+    private void onChunkLoad(net.minecraft.client.multiplayer.ClientLevel world, net.minecraft.world.level.chunk.LevelChunk chunk) {
+        long posLong = net.map6b6t.EnvBridge.asLong(net.map6b6t.EnvBridge.getChunkX(chunk.getPos()), net.map6b6t.EnvBridge.getChunkZ(chunk.getPos()));
+        if (networkChunks.remove(posLong)) {
+            handleIncomingServerChunk(chunk);
+        }
+    }
+
     private String cachedPlayerName = null;
     private String cachedDimension = null;
 
