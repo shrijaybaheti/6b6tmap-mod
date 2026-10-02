@@ -67,6 +67,7 @@ public class SpawnMapMod implements ClientModInitializer {
         net.map6b6t.gui.HudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
+        ClientChunkEvents.CHUNK_LOAD.register((client, world, chunk) -> handleIncomingServerChunk(chunk));
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("6b6tmap")
