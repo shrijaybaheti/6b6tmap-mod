@@ -32,6 +32,18 @@ public class SpawnMapMod implements ClientModInitializer {
     private final Map<Long, Integer> lastSeenHash = new ConcurrentHashMap<>();
     private static final int LAST_SEEN_MAX = 500_000;
     private ClientWorld lastWorld = null;
+    private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    public void markChunkReceived(int x, int z) {
+        networkChunks.add(net.minecraft.util.math.ChunkPos.toLong(x, z));
+    }
+
+    private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
+        if (networkChunks.remove(chunk.getPos().toLong())) {
+            handleIncomingServerChunk(chunk);
+        }
+    }
+
 
     public SpawnMapMod() {
         INSTANCE = this;
@@ -67,7 +79,7 @@ public class SpawnMapMod implements ClientModInitializer {
         net.map6b6t.gui.HudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
-        ClientChunkEvents.CHUNK_LOAD.register((client, world, chunk) -> handleIncomingServerChunk(chunk));
+        ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("6b6tmap")
