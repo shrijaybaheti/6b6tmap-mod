@@ -34,9 +34,56 @@ public class SpawnMapMod implements ClientModInitializer {
     private ClientWorld lastWorld = null;
     private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
-    public void markChunkReceived(int x, int z) {
-        networkChunks.add(net.minecraft.util.math.ChunkPos.toLong(x, z));
+        public void handleRawPacket(int chunkX, int chunkZ, Object packet) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || !is6b6tServer(client)) {
+            return;
+        }
+
+        ModConfig config = net.map6b6t.config.ConfigManager.get();
+        if (!config.enabled) {
+            return;
+        }
+
+        if (client.world != lastWorld) {
+            resetSessionCache();
+            lastWorld = client.world;
+        }
+
+        if (!config.isChunkWithinSpawn(chunkX, chunkZ)) {
+            return;
+        }
+
+        if (net.map6b6t.network.UploadService.get().shouldPauseScanning()) {
+            return;
+        }
+
+        String playerName = resolvePlayerName(client.player);
+        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
+            playerName = config.playerOverride.trim();
+        }
+        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
+            net.map6b6t.network.UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
+            return;
+        }
+
+        String dimension = client.world.getRegistryKey().getValue().toString();
+        String serverVer = resolveServerVersion(client);
+
+        byte[] rawBytes = net.map6b6t.scanner.RawChunkExtractor.extractSectionsData(packet);
+        if (rawBytes != null) {
+            net.map6b6t.network.UploadService.get().submitRawPacketAsync(
+                    dimension,
+                    chunkX,
+                    chunkZ,
+                    playerName,
+                    serverVer,
+                    rawBytes,
+                    lastSeenHash::put
+            );
+        }
     }
+
 
     private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
         if (networkChunks.remove(chunk.getPos().toLong())) {
@@ -325,3 +372,4 @@ public class SpawnMapMod implements ClientModInitializer {
         return "";
     }
 }
+

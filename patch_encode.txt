@@ -1,0 +1,14 @@
+    static byte[] encodeSingle(ChunkSubmission job) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("dimension", job.dimension);
+        obj.addProperty("chunkX", job.chunkX);
+        obj.addProperty("chunkZ", job.chunkZ);
+        obj.addProperty("playerName", job.playerName);
+        obj.addProperty("serverVersion", job.serverVersion);
+        
+        if (job.rawBytes != null) {
+            obj.addProperty("rawPacketData", java.util.Base64.getEncoder().encodeToString(job.rawBytes));
+        }
+
+        return obj.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }

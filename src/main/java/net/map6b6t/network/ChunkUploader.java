@@ -229,32 +229,21 @@ final class ChunkUploader {
         return submitUrl;
     }
 
-        static byte[] encodeSingle(ChunkSubmission job) {
-        if (job.blocks == null) return new byte[0];
+            static byte[] encodeSingle(ChunkSubmission job) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("dimension", job.dimension);
+        obj.addProperty("chunkX", job.chunkX);
+        obj.addProperty("chunkZ", job.chunkZ);
+        obj.addProperty("playerName", job.playerName);
+        obj.addProperty("serverVersion", job.serverVersion);
         
-        java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
-        java.util.List<String> paletteList = new java.util.ArrayList<>();
-        
-        long[] blocks = job.blocks.blocks;
-        int size = job.blocks.size;
-        
-        int[] encodedBlocks = new int[size];
-        int validCount = 0;
-        
-        for (int i = 0; i < size; i++) {
-            long val = blocks[i];
-            int x = (int) (val & 0xF);
-            int y = (int) ((val >>> 4) & 0x1FFF);
-            int z = (int) ((val >>> 17) & 0xF);
-            int rawId = (int) ((val >>> 21) & 0xFFFFFFFFL);
-            String bName = net.map6b6t.scanner.ChunkScanner.getBlockIdStringFromRaw(rawId);
-            
-            Integer pIdx = paletteMap.get(bName);
-            if (pIdx == null) {
-                pIdx = paletteList.size();
-                paletteMap.put(bName, pIdx);
-                paletteList.add(bName);
-            }
+        if (job.rawBytes != null) {
+            obj.addProperty("rawPacketData", java.util.Base64.getEncoder().encodeToString(job.rawBytes));
+        }
+
+        return obj.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
             
             encodedBlocks[validCount++] = (x << 28) | (z << 24) | (((y + 64) & 0x3FF) << 14) | (pIdx & 0x3FFF);
         }
@@ -370,4 +359,5 @@ final class ChunkUploader {
         return out.toByteArray();
     }
 }
+
 
