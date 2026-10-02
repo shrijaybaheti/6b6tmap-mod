@@ -44,13 +44,17 @@ jobs:
         with:
           name: map6b6t-jars
           path: |
-            versions/*/build/libs/*[!s].jar
+            versions/*/build/libs/*.jar
+            !versions/*/build/libs/*-sources.jar
+            !versions/*/build/libs/*-dev.jar
 
       - name: Update GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get the latest release tag
           LATEST_TAG=$(gh release view --json tagName -q .tagName)
-          # Upload the new jars to the latest release, overwriting any existing ones
-          gh release upload $LATEST_TAG versions/*/build/libs/*[!s].jar --clobber
+          for jar in versions/*/build/libs/*.jar; do
+            if [[ "$jar" != *"-sources.jar" && "$jar" != *"-dev.jar" ]]; then
+              gh release upload "$LATEST_TAG" "$jar" --clobber
+            fi
+          done
