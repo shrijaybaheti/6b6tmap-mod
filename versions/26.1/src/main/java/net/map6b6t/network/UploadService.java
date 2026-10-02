@@ -93,7 +93,7 @@ public final class UploadService {
             int chunkZ,
             String playerName,
             String serverVersion,
-            List<ScannedBlock> scannedBlocks,
+            net.minecraft.world.level.chunk.LevelChunk chunk,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
@@ -102,6 +102,7 @@ public final class UploadService {
         scanExecutor.execute(() -> {
             try {
                 
+                java.util.List<net.map6b6t.scanner.ScannedBlock> scannedBlocks = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
                 if (scannedBlocks == null || scannedBlocks.isEmpty()) {
                     return;
                 }
