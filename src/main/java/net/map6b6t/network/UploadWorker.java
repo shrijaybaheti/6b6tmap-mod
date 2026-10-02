@@ -36,14 +36,11 @@ final class UploadWorker implements Runnable {
                 stats.setUploading(queue.uploadingCount());
                 stats.setQueueSize(queue.size());
 
-                UploadResult result = batch.size() == 1 || !service.isBatchEnabled()
-                        ? uploader.sendSingle(first)
-                        : uploader.sendBatchRaw(batch);
+                UploadResult result = uploader.sendBatchRaw(batch);
 
-                if (result.batchNotSupported && batch.size() > 1) {
-                    service.disableBatching();
-                    result = sendEach(batch);
-                    continue;
+                if (result.batchNotSupported) {
+                    // Fallback is no longer supported since payload is binary
+                    LOGGER.warn("Server does not support binary batch_raw!");
                 }
 
                 handleResult(batch, result);
