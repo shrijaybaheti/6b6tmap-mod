@@ -43,14 +43,14 @@ public final class UploadService {
         running.set(true);
         batchEnabled.set(true);
         ThreadFactory factory = new WorkerFactory();
-        int scanWorkers = Math.max(2, Runtime.getRuntime().availableProcessors() / 4);
+        int scanWorkers = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
         workers = Executors.newFixedThreadPool(WORKERS, factory);
         scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
                 scanWorkers, scanWorkers,
                 0L, TimeUnit.MILLISECONDS,
-                new java.util.concurrent.ArrayBlockingQueue<>(4096),
+                new java.util.concurrent.ArrayBlockingQueue<>(1024),
                 new ScanWorkerFactory(),
-                new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
+                new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()
         );
         httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
