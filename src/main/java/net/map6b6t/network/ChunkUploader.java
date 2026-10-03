@@ -71,13 +71,7 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
     }
 
     UploadResult sendSingle(ChunkSubmission job) {
-        String url = ModConfig.sanitizeServerUrl(ConfigManager.get().serverUrl);
-        byte[] gzipped = job.preEncodedGzip;
-        if (gzipped == null) gzipped = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
-        if (gzipped != null) {
-            return sendGzipDirect(url, gzipped);
-        }
-        return send(url, encodeBlocks(job.blocks, job.chunkX, job.chunkZ));
+        return sendBatchRaw(java.util.Collections.singletonList(job));
     }
 
     private static String batchRawUrl(String base) {
