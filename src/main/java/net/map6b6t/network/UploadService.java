@@ -4,9 +4,8 @@ import net.map6b6t.scanner.ScannedBlock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.http.HttpClient;
+
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +28,6 @@ public final class UploadService {
     private ExecutorService workers;
     private ExecutorService scanExecutor;
     private Thread statsThread;
-    private HttpClient httpClient;
     private volatile UploadListener uploadListener;
 
     public static UploadService get() {
@@ -52,11 +50,11 @@ public final class UploadService {
                 new ScanWorkerFactory(),
                 new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()
         );
-        httpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
-        ChunkUploader uploader = new ChunkUploader(httpClient);
+        
+                
+                
+                
+        ChunkUploader uploader = new ChunkUploader();
         for (int i = 0; i < WORKERS; i++) {
             workers.execute(new UploadWorker(queue, uploader, stats, this));
         }

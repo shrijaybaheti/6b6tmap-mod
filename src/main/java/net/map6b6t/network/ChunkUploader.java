@@ -10,23 +10,63 @@ import net.map6b6t.scanner.ScannedBlock;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
 final class ChunkUploader { private static final ThreadLocal<java.util.Map<String, Integer>> PALETTE_MAP = ThreadLocal.withInitial(java.util.HashMap::new); private static final ThreadLocal<java.util.List<String>> PALETTE_LIST = ThreadLocal.withInitial(java.util.ArrayList::new); private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[131072]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(1048576).order(java.nio.ByteOrder.LITTLE_ENDIAN));
     private static final int GZIP_AFTER_BYTES = 256;
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
+    private static final int CONNECT_TIMEOUT_MS = 15000;
+    private static final int READ_TIMEOUT_MS = 60000;
 
-    private final HttpClient httpClient;
+    ChunkUploader() {
+    }
 
-    ChunkUploader(HttpClient httpClient) {
-        this.httpClient = httpClient;
+    private static UploadResult httpPost(String url, byte[] body, String contentType, String contentEncoding, String playerName, String dimension) {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(READ_TIMEOUT_MS);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", contentType);
+            conn.setRequestProperty(Protocol.HEADER, String.valueOf(Protocol.VERSION));
+            conn.setRequestProperty(Protocol.MOD_VERSION_HEADER, Protocol.MOD_VERSION);
+            if (contentEncoding != null) conn.setRequestProperty("Content-Encoding", contentEncoding);
+            if (playerName != null) conn.setRequestProperty("X-Player-Name", playerName);
+            if (dimension != null) conn.setRequestProperty("X-Dimension", dimension);
+            String token = ConfigManager.get().submitToken;
+            if (token != null && !token.isBlank()) conn.setRequestProperty(Protocol.TOKEN_HEADER, token.trim());
+
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body);
+            }
+
+            int status = conn.getResponseCode();
+            String retryAfter = conn.getHeaderField("Retry-After");
+            InputStream is = status < 400 ? conn.getInputStream() : conn.getErrorStream();
+            String responseBody = "";
+            if (is != null) {
+                try { responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8); } finally { is.close(); }
+            }
+
+            if (status >= 200 && status < 300) {
+                List<UploadResult.Item> items = parseBatchItems(responseBody);
+                if (items != null) return UploadResult.mixed(body.length, items);
+                return UploadResult.ok(body.length);
+            }
+            String err = responseBody != null && !responseBody.isBlank() ? "HTTP " + status + " " + responseBody : "HTTP " + status;
+            return UploadResult.http(status, body.length, err, RetryPolicy.parseRetryAfter(retryAfter));
+        } catch (Exception e) {
+            return UploadResult.network(e);
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
     }
 
     UploadResult sendSingle(ChunkSubmission job) {
@@ -66,29 +106,9 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             }
             dos.flush();
             byte[] payload = baos.toByteArray();
-            
-            HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(REQUEST_TIMEOUT)
-                    .header("Content-Type", "application/octet-stream")
-                    .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
-                    .header(Protocol.MOD_VERSION_HEADER, Protocol.MOD_VERSION)
-                    .header("X-Player-Name", jobs.isEmpty() ? "binary" : jobs.get(0).playerName)
-                    .header("X-Dimension", jobs.isEmpty() ? "minecraft:overworld" : jobs.get(0).dimension)
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(payload));
-            String token = ConfigManager.get().submitToken;
-            if (token != null && !token.isBlank()) {
-                builder.header(Protocol.TOKEN_HEADER, token.trim());
-            }
-
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            int status = response.statusCode();
-            if (status >= 200 && status < 300) {
-                List<UploadResult.Item> items = parseBatchItems(response.body());
-                if (items != null) return UploadResult.mixed(payload.length, items);
-                return UploadResult.ok(payload.length);
-            }
-            return UploadResult.http(status, payload.length, "HTTP " + status, null);
+            String playerName = jobs.isEmpty() ? "binary" : jobs.get(0).playerName;
+            String dimension = jobs.isEmpty() ? "minecraft:overworld" : jobs.get(0).dimension;
+            return httpPost(url, payload, "application/octet-stream", null, playerName, dimension);
         } catch (Exception e) {
             return UploadResult.network(e);
         }
@@ -106,39 +126,7 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
     }
 
     private UploadResult sendGzipDirect(String url, byte[] gzipBytes) {
-        try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(REQUEST_TIMEOUT)
-                    .header("Content-Type", "application/json")
-                    .header("Content-Encoding", "gzip")
-                    .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(gzipBytes));
-            String token = ConfigManager.get().submitToken;
-            if (token != null && !token.isBlank()) {
-                builder.header(Protocol.TOKEN_HEADER, token.trim());
-            }
-
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            int status = response.statusCode();
-            if (status >= 200 && status < 300) {
-                List<UploadResult.Item> items = parseBatchItems(response.body());
-                if (items != null) {
-                    return UploadResult.mixed(gzipBytes.length, items);
-                }
-                return UploadResult.ok(gzipBytes.length);
-            }
-            String err = "HTTP " + status;
-            if (response.body() != null && !response.body().isBlank()) {
-                err = err + " " + response.body();
-            }
-            return UploadResult.http(status, gzipBytes.length, err, RetryPolicy.parseRetryAfter(response.headers().firstValue("Retry-After").orElse(null)));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return UploadResult.network(e);
-        } catch (Exception e) {
-            return UploadResult.network(e);
-        }
+        return httpPost(url, gzipBytes, "application/json", "gzip", null, null);
     }
 
     private UploadResult send(String url, byte[] jsonBytes) {
@@ -148,38 +136,7 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             if (gzip) {
                 body = gzip(jsonBytes);
             }
-
-            HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(REQUEST_TIMEOUT)
-                    .header("Content-Type", "application/json")
-                    .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body));
-            String token = ConfigManager.get().submitToken;
-            if (token != null && !token.isBlank()) {
-                builder.header(Protocol.TOKEN_HEADER, token.trim());
-            }
-            if (gzip) {
-                builder.header("Content-Encoding", "gzip");
-            }
-
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            int status = response.statusCode();
-            if (status >= 200 && status < 300) {
-                List<UploadResult.Item> items = parseBatchItems(response.body());
-                if (items != null) {
-                    return UploadResult.mixed(body.length, items);
-                }
-                return UploadResult.ok(body.length);
-            }
-            String err = "HTTP " + status;
-            if (response.body() != null && !response.body().isBlank()) {
-                err = err + " " + response.body();
-            }
-            return UploadResult.http(status, body.length, err, RetryPolicy.parseRetryAfter(response.headers().firstValue("Retry-After").orElse(null)));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return UploadResult.network(e);
+            return httpPost(url, body, "application/json", gzip ? "gzip" : null, null, null);
         } catch (Exception e) {
             return UploadResult.network(e);
         }
