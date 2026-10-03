@@ -19,7 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[4096]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(65536).order(java.nio.ByteOrder.LITTLE_ENDIAN));
+final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[131072]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(1048576).order(java.nio.ByteOrder.LITTLE_ENDIAN));
     private static final int GZIP_AFTER_BYTES = 256;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
