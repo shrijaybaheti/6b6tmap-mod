@@ -8,7 +8,7 @@ public final class ChunkSubmission {
     public final int chunkZ;
     public final String playerName;
     public final String serverVersion;
-    public final byte[] rawBytes;
+    public final Object blocks;
     public final int contentHash;
     public final byte[] preEncodedGzip;
     public final Object proof = null;
@@ -23,10 +23,10 @@ public final class ChunkSubmission {
             int chunkZ,
             String playerName,
             String serverVersion,
-            byte[] rawBytes,
+            Object blocks,
             int contentHash
     ) {
-        this(dimension, chunkX, chunkZ, playerName, serverVersion, rawBytes, contentHash, null);
+        this(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, contentHash, null);
     }
 
     public ChunkSubmission(
@@ -35,7 +35,7 @@ public final class ChunkSubmission {
             int chunkZ,
             String playerName,
             String serverVersion,
-            byte[] rawBytes,
+            Object blocks,
             int contentHash,
             byte[] preEncodedGzip
     ) {
@@ -44,7 +44,7 @@ public final class ChunkSubmission {
         this.chunkZ = chunkZ;
         this.playerName = playerName;
         this.serverVersion = serverVersion;
-        this.rawBytes = rawBytes;
+        this.blocks = blocks;
         this.contentHash = contentHash;
         this.preEncodedGzip = preEncodedGzip;
         this.key = new Key(this.dimension, this.chunkX, this.chunkZ);
@@ -67,8 +67,8 @@ public final class ChunkSubmission {
         return nowMs >= nextAttemptAtMs;
     }
 
-    public static int contentHash(byte[] rawBytes) {
-        return java.util.Arrays.hashCode(rawBytes);
+    public static int contentHash(Object blocks) {
+        return blocks != null ? blocks.hashCode() : 0;
     }
 
     public static final class Key {

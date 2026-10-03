@@ -81,6 +81,8 @@ public class SpawnMapMod implements ClientModInitializer {
             UploadService.get().shutdown();
         });
 
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register((client, world, chunk) -> onChunkLoad(world, chunk));
+
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("6b6tmap")
                 .then(net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal("toggle")

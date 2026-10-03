@@ -34,13 +34,27 @@ public class SpawnMapMod implements ClientModInitializer {
     private ClientWorld lastWorld = null;
     private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
-        public void handleRawPacket(int chunkX, int chunkZ, Object packet) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public void markChunkReceived(int x, int z) {
+        networkChunks.add(net.minecraft.util.math.ChunkPos.toLong(x, z));
+    }
+
+    private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
+        if (networkChunks.remove(chunk.getPos().toLong())) {
+            handleIncomingServerChunk(chunk);
+        }
+    }
+
+    public void handleIncomingServerChunk(net.minecraft.world.chunk.WorldChunk chunk) {
+        if (chunk == null) {
+            return;
+        }
+
+        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
         if (client.world == null || !is6b6tServer(client)) {
             return;
         }
 
-        ModConfig config = net.map6b6t.config.ConfigManager.get();
+        net.map6b6t.config.ModConfig config = net.map6b6t.config.ConfigManager.get();
         if (!config.enabled) {
             return;
         }
@@ -50,7 +64,12 @@ public class SpawnMapMod implements ClientModInitializer {
             lastWorld = client.world;
         }
 
-        if (!config.isChunkWithinSpawn(chunkX, chunkZ)) {
+        if (lastSeenHash.size() > LAST_SEEN_MAX) {
+            lastSeenHash.clear();
+        }
+
+        net.minecraft.util.math.ChunkPos pos = chunk.getPos();
+        if (!config.isChunkWithinSpawn(pos.x, pos.z)) {
             return;
         }
 
@@ -70,19 +89,23 @@ public class SpawnMapMod implements ClientModInitializer {
         String dimension = client.world.getRegistryKey().getValue().toString();
         String serverVer = resolveServerVersion(client);
 
-        byte[] rawBytes = net.map6b6t.scanner.RawChunkExtractor.extractSectionsData(packet);
-        if (rawBytes != null) {
-            net.map6b6t.network.UploadService.get().submitRawPacketAsync(
-                    dimension,
-                    chunkX,
-                    chunkZ,
-                    playerName,
-                    serverVer,
-                    rawBytes,
-                    lastSeenHash::put
-            );
-        }
+        net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
+        net.map6b6t.network.UploadService.get().submitAsyncScan(
+                dimension,
+                pos.x,
+                pos.z,
+                playerName,
+                serverVer,
+                snapshot,
+                lastSeenHash::put
+        );
     }
+
+
+    
+
+
+        
 
 
     
@@ -122,7 +145,7 @@ public class SpawnMapMod implements ClientModInitializer {
         net.map6b6t.gui.HudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
-        // Removed CHUNK_LOAD hook
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("6b6tmap")

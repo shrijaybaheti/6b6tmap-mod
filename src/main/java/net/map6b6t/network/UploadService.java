@@ -92,7 +92,46 @@ public final class UploadService {
         LOGGER.info("Upload service stopped ({})", stats.snapshot());
     }
 
-        public void submitRawPacketAsync(
+        
+    public void submitAsyncScan(
+            String dimension,
+            int chunkX,
+            int chunkZ,
+            String playerName,
+            String serverVersion,
+            net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot,
+            java.util.function.BiConsumer<Long, Integer> onHashComputed
+    ) {
+        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
+            return;
+        }
+        scanExecutor.execute(() -> {
+            try {
+                int contentHash = snapshot.hashCode();
+                long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
+                if (onHashComputed != null) {
+                    onHashComputed.accept(chunkKey, contentHash);
+                }
+
+                ChunkSubmission job = new ChunkSubmission(
+                        dimension,
+                        chunkX,
+                        chunkZ,
+                        playerName,
+                        serverVersion,
+                        snapshot,
+                        contentHash
+                );
+                
+                queue.offer(job);
+                
+            } catch (Exception e) {
+                LOGGER.error("Failed async chunk scan", e);
+            }
+        });
+    }
+
+    public void submitRawPacketAsync(
             String dimension,
             int chunkX,
             int chunkZ,

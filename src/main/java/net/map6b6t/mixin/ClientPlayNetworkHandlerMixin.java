@@ -12,6 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientPlayNetworkHandlerMixin {
     @Inject(method = "onChunkData", at = @At("RETURN"))
     private void afterChunkData(ChunkDataS2CPacket packet, CallbackInfo ci) {
-        SpawnMapMod.getInstance().handleRawPacket(packet.getChunkX(), packet.getChunkZ(), packet);
+        SpawnMapMod.getInstance().markChunkReceived(packet.getChunkX(), packet.getChunkZ());
     }
 }
