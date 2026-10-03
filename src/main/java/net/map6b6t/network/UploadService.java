@@ -118,7 +118,7 @@ public final class UploadService {
                     byte[] raw = ChunkUploader.encodeBlocks(snapshot, chunkX, chunkZ);
                     encodedGzip = ChunkUploader.gzip(raw);
                 } catch (Exception e) {
-                    LOGGER.error("Failed to gzip chunk", e);
+                    LOGGER.error("Failed to gzip chunk", e); } finally { snapshot.release();
                 }
 
                 ChunkSubmission job = new ChunkSubmission(

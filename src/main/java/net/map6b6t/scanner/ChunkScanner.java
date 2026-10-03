@@ -36,7 +36,7 @@ public class ChunkScanner {
     }
 
     public static PrimitiveChunkSnapshot snapshotAndScanSections(ChunkSection[] sections, int bottomY) {
-        long[] array = new long[4096];
+        long[] array = PrimitiveChunkSnapshot.borrowArray();
         int size = 0;
         
         if (sections == null) {
@@ -67,7 +67,7 @@ public class ChunkScanner {
                         int rawId = isWater ? -1 : Registries.BLOCK.getRawId(state.getBlock());
                         long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
                         
-                        if (size == array.length) {
+                        if (size >= array.length) {
                             long[] n = new long[array.length * 2];
                             System.arraycopy(array, 0, n, 0, array.length);
                             array = n;
@@ -77,9 +77,9 @@ public class ChunkScanner {
                 }
             }
         }
-        long[] exact = new long[size];
-        System.arraycopy(array, 0, exact, 0, size);
-        return new PrimitiveChunkSnapshot(exact, size);
+        
+        
+        return new PrimitiveChunkSnapshot(array, size);
     }
 }
 

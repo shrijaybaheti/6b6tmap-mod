@@ -19,7 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-final class ChunkUploader {
+final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[4096]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(65536).order(java.nio.ByteOrder.LITTLE_ENDIAN));
     private static final int GZIP_AFTER_BYTES = 256;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
@@ -237,14 +237,14 @@ final class ChunkUploader {
         java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
         java.util.List<String> paletteList = new java.util.ArrayList<>();
         
-        int[] encodedBlocks;
+        int[] encodedBlocks = ENCODE_BUFFER.get();
         int validCount = 0;
         
         if (blocksObj instanceof net.map6b6t.scanner.PrimitiveChunkSnapshot) {
             net.map6b6t.scanner.PrimitiveChunkSnapshot snap = (net.map6b6t.scanner.PrimitiveChunkSnapshot) blocksObj;
             long[] blocks = snap.blocks;
-            int size = snap.size;
-            encodedBlocks = new int[size];
+            int size = snap.size; if (size > encodedBlocks.length) { encodedBlocks = new int[size]; ENCODE_BUFFER.set(encodedBlocks); }
+            
             for (int i = 0; i < size; i++) {
                 long val = blocks[i];
                 int x = (int) (val & 0xF);
@@ -263,8 +263,8 @@ final class ChunkUploader {
                 encodedBlocks[validCount++] = (x << 28) | (z << 24) | (((y + 64) & 0x3FF) << 14) | (pIdx & 0x3FFF);
             }
         } else if (blocksObj instanceof java.util.List) {
-            java.util.List<?> list = (java.util.List<?>) blocksObj;
-            encodedBlocks = new int[list.size()];
+            java.util.List<?> list = (java.util.List<?>) blocksObj; if (list.size() > encodedBlocks.length) { encodedBlocks = new int[list.size()]; ENCODE_BUFFER.set(encodedBlocks); }
+            
             for (Object obj : list) {
                 try {
                     int x = obj.getClass().getField("x").getInt(obj);
@@ -295,7 +295,7 @@ final class ChunkUploader {
         }
         
         int capacity = 1 + 4 + 4 + 2 + paletteBytesSize + 4 + (validCount * 4);
-        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(capacity).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        java.nio.ByteBuffer buf = BYTE_BUFFER.get(); if (capacity > buf.capacity()) { buf = java.nio.ByteBuffer.allocate(capacity).order(java.nio.ByteOrder.LITTLE_ENDIAN); BYTE_BUFFER.set(buf); } buf.clear(); buf.limit(capacity);
         
         buf.put((byte) 2);
         buf.putInt(chunkX);
@@ -312,7 +312,7 @@ final class ChunkUploader {
             buf.putInt(encodedBlocks[i]);
         }
         
-        return buf.array();
+        return java.util.Arrays.copyOf(buf.array(), capacity);
     }
 
     private static String unzipToString(byte[] gzipBytes) throws IOException {
