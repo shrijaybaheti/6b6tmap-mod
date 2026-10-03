@@ -8,4 +8,11 @@ public class PrimitiveChunkSnapshot {
         this.blocks = blocks;
         this.size = size;
     }
+
+    @Override
+    public int hashCode() {
+        int result = java.util.Arrays.hashCode(blocks);
+        result = 31 * result + size;
+        return result;
+    }
 }

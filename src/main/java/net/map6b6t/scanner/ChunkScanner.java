@@ -77,7 +77,9 @@ public class ChunkScanner {
                 }
             }
         }
-        return new PrimitiveChunkSnapshot(array, size);
+        long[] exact = new long[size];
+        System.arraycopy(array, 0, exact, 0, size);
+        return new PrimitiveChunkSnapshot(exact, size);
     }
 }
 
