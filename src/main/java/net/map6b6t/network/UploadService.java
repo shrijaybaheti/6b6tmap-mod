@@ -113,14 +113,23 @@ public final class UploadService {
                     onHashComputed.accept(chunkKey, contentHash);
                 }
 
+                byte[] encodedGzip = null;
+                try {
+                    byte[] raw = ChunkUploader.encodeBlocks(snapshot);
+                    encodedGzip = ChunkUploader.gzip(raw);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to gzip chunk", e);
+                }
+
                 ChunkSubmission job = new ChunkSubmission(
                         dimension,
                         chunkX,
                         chunkZ,
                         playerName,
                         serverVersion,
-                        snapshot,
-                        contentHash
+                        null,
+                        contentHash,
+                        encodedGzip
                 );
                 
                 queue.offer(job);

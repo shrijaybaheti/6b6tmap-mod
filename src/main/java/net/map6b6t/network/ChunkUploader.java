@@ -36,7 +36,7 @@ final class ChunkUploader {
         if (gzipped != null) {
             return sendGzipDirect(url, gzipped);
         }
-        return send(url, encodeSingle(job));
+        return send(url, encodeBlocks(job.blocks));
     }
 
     private static String batchRawUrl(String base) {
@@ -59,7 +59,7 @@ final class ChunkUploader {
                 byte[] gzip = job.preEncodedGzip;
                 if (gzip == null) gzip = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
                 if (gzip == null) {
-                    gzip = gzip(encodeSingle(job));
+                    gzip = gzip(encodeBlocks(job.blocks));
                 }
                 dos.writeInt(gzip.length);
                 dos.write(gzip);
@@ -231,8 +231,8 @@ final class ChunkUploader {
         return submitUrl;
     }
 
-            static byte[] encodeSingle(ChunkSubmission job) {
-        if (job.blocks == null) return new byte[0];
+            public static byte[] encodeBlocks(Object blocks) {
+        if (blocks == null) return new byte[0];
         
         java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
         java.util.List<String> paletteList = new java.util.ArrayList<>();
@@ -240,8 +240,8 @@ final class ChunkUploader {
         int[] encodedBlocks;
         int validCount = 0;
         
-        if (job.blocks instanceof net.map6b6t.scanner.PrimitiveChunkSnapshot) {
-            net.map6b6t.scanner.PrimitiveChunkSnapshot snap = (net.map6b6t.scanner.PrimitiveChunkSnapshot) job.blocks;
+        if (blocks instanceof net.map6b6t.scanner.PrimitiveChunkSnapshot) {
+            net.map6b6t.scanner.PrimitiveChunkSnapshot snap = (net.map6b6t.scanner.PrimitiveChunkSnapshot) blocks;
             long[] blocks = snap.blocks;
             int size = snap.size;
             encodedBlocks = new int[size];
@@ -332,14 +332,14 @@ final class ChunkUploader {
             if (gzip != null) {
                 sb.append(unzipToString(gzip));
             } else {
-                sb.append(new String(encodeSingle(job), StandardCharsets.UTF_8));
+                sb.append(new String(encodeBlocks(job.blocks), StandardCharsets.UTF_8));
             }
         }
         sb.append("]}");
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    static byte[] gzip(byte[] input) throws IOException {
+    public static byte[] gzip(byte[] input) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, input.length / 4));
         try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
             gzip.write(input);
