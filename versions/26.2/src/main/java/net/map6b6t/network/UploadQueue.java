@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class UploadQueue {
-    public static final int CAPACITY = 8192;
-    public static final int PAUSE_SCAN_AT = 7168;
+    public static final int CAPACITY = 250000;
+    public static final int PAUSE_SCAN_AT = 200000;
 
     public enum OfferResult {
         ACCEPTED,
@@ -31,7 +31,7 @@ public final class UploadQueue {
     }
 
     public OfferResult offer(ChunkSubmission job) {
-        if (job == null || (job.blocks == null && job.preEncodedGzip == null)) {
+        if (job == null) {
             return OfferResult.REJECTED;
         }
         synchronized (lock) {

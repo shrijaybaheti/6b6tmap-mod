@@ -1,8 +1,7 @@
 package net.map6b6t.network;
 
-import net.map6b6t.scanner.ScannedBlock;
+import net.map6b6t.scanner.PrimitiveChunkSnapshot;
 
-import java.util.List;
 import java.util.Objects;
 
 public final class ChunkSubmission {
@@ -11,10 +10,9 @@ public final class ChunkSubmission {
     public final int chunkZ;
     public final String playerName;
     public final String serverVersion;
-    public final List<ScannedBlock> blocks;
+    public final PrimitiveChunkSnapshot blocks;
     public final int contentHash;
     public final byte[] preEncodedGzip;
-    public final String preEncodedJson;
     public final Object proof;
     public final Key key;
 
@@ -27,10 +25,10 @@ public final class ChunkSubmission {
             int chunkZ,
             String playerName,
             String serverVersion,
-            List<ScannedBlock> blocks,
+            PrimitiveChunkSnapshot blocks,
             int contentHash
     ) {
-        this(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, contentHash, null, null);
+        this(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, contentHash, null);
     }
 
     public ChunkSubmission(
@@ -39,10 +37,9 @@ public final class ChunkSubmission {
             int chunkZ,
             String playerName,
             String serverVersion,
-            List<ScannedBlock> blocks,
+            PrimitiveChunkSnapshot blocks,
             int contentHash,
-            byte[] preEncodedGzip,
-            String preEncodedJson
+            byte[] preEncodedGzip
     ) {
         this.dimension = dimension == null || dimension.isBlank() ? "minecraft:overworld" : dimension;
         this.chunkX = chunkX;
@@ -52,20 +49,16 @@ public final class ChunkSubmission {
         this.blocks = blocks;
         this.contentHash = contentHash;
         this.preEncodedGzip = preEncodedGzip;
-        this.preEncodedJson = preEncodedJson;
         this.proof = null;
         this.key = new Key(this.dimension, chunkX, chunkZ);
         this.nextAttemptAtMs = 0L;
     }
 
-    public static int contentHash(List<ScannedBlock> blocks) {
-        int h = blocks.size();
-        for (int i = 0; i < blocks.size(); i++) {
-            ScannedBlock b = blocks.get(i);
-            h = 31 * h + b.x;
-            h = 31 * h + b.y;
-            h = 31 * h + b.z;
-            h = 31 * h + (b.block == null ? 0 : b.block.hashCode());
+    public static int contentHash(PrimitiveChunkSnapshot blocks) {
+        int h = blocks.size;
+        for (int i = 0; i < blocks.size; i++) {
+            long val = blocks.blocks[i];
+            h = 31 * h + (int) (val ^ (val >>> 32));
         }
         return h;
     }

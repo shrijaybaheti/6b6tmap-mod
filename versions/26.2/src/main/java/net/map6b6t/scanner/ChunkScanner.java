@@ -13,26 +13,34 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChunkScanner {
-    private static final Map<net.minecraft.world.level.block.Block, String> BLOCK_NAME_CACHE = new ConcurrentHashMap<>(512);
-    private static final String WATER_ID = "minecraft:water";
+    private static final int CACHE_SIZE = 4096;
+    private static final Map<Integer, String> BLOCK_NAME_CACHE = new ConcurrentHashMap<>(CACHE_SIZE);
+    public static final String WATER_ID = "minecraft:water";
 
-    private static String getBlockIdString(net.minecraft.world.level.block.Block block) {
-        String cached = BLOCK_NAME_CACHE.get(block);
+    public static String getBlockIdStringFromRaw(int rawId) {
+        if (rawId == -1) return WATER_ID;
+        String cached = BLOCK_NAME_CACHE.get(rawId);
         if (cached == null) {
+            net.minecraft.world.level.block.Block block = BuiltInRegistries.BLOCK.byId(rawId);
+            if (block == null) return "minecraft:air";
             cached = BuiltInRegistries.BLOCK.getKey(block).toString();
-            BLOCK_NAME_CACHE.put(block, cached);
+            if (BLOCK_NAME_CACHE.size() < CACHE_SIZE) {
+                BLOCK_NAME_CACHE.put(rawId, cached);
+            }
         }
         return cached;
     }
 
-    public static List<ScannedBlock> snapshotAndScan(LevelChunk chunk) {
+    public static PrimitiveChunkSnapshot snapshotAndScan(LevelChunk chunk) {
         return snapshotAndScanSections(chunk.getSections(), net.map6b6t.EnvBridge.getMinBuildHeight(chunk));
     }
 
-    public static List<ScannedBlock> snapshotAndScanSections(LevelChunkSection[] sections, int bottomY) {
-        List<ScannedBlock> list = new ArrayList<>(4096);
+    public static PrimitiveChunkSnapshot snapshotAndScanSections(LevelChunkSection[] sections, int bottomY) {
+        long[] array = PrimitiveChunkSnapshot.borrowArray();
+        int size = 0;
+        
         if (sections == null) {
-            return list;
+            return new PrimitiveChunkSnapshot(array, 0);
         }
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
@@ -43,9 +51,9 @@ public class ChunkScanner {
 
             int sectionBaseY = bottomY + (sectionIndex << 4);
 
-            for (int rx = 0; rx < 16; rx++) {
+            for (int ry = 0; ry < 16; ry++) {
                 for (int rz = 0; rz < 16; rz++) {
-                    for (int ry = 0; ry < 16; ry++) {
+                    for (int rx = 0; rx < 16; rx++) {
                         BlockState state = section.getBlockState(rx, ry, rz);
                         FluidState fluidState = section.getFluidState(rx, ry, rz);
 
@@ -56,13 +64,20 @@ public class ChunkScanner {
                         }
 
                         int y = sectionBaseY + ry;
-                        String blockName = isWater ? WATER_ID : getBlockIdString(state.getBlock());
-                        list.add(new ScannedBlock(rx, y, rz, blockName));
+                        int rawId = isWater ? -1 : BuiltInRegistries.BLOCK.getId(state.getBlock());
+                        long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
+                        
+                        if (size == array.length) {
+                            long[] n = new long[array.length * 2];
+                            System.arraycopy(array, 0, n, 0, array.length);
+                            array = n;
+                        }
+                        array[size++] = val;
                     }
                 }
             }
         }
-        return list;
+        return new PrimitiveChunkSnapshot(array, size);
     }
 }
 

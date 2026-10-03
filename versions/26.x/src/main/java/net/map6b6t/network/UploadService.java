@@ -90,20 +90,6 @@ public final class UploadService {
         LOGGER.info("Upload service stopped ({})", stats.snapshot());
     }
 
-        
-    public void submitAsyncScan(
-            String dimension,
-            net.minecraft.world.level.chunk.LevelChunk chunk,
-            int chunkX,
-            int chunkZ,
-            String playerName,
-            String serverVersion,
-            java.util.function.BiConsumer<Long, Integer> onHashComputed
-    ) {
-        net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
-        submitAsyncScan(dimension, chunkX, chunkZ, playerName, serverVersion, snapshot, onHashComputed);
-    }
-
     public void submitAsyncScan(
             String dimension,
             int chunkX,
