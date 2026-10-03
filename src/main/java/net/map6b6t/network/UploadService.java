@@ -41,7 +41,7 @@ public final class UploadService {
         running.set(true);
         batchEnabled.set(true);
         ThreadFactory factory = new WorkerFactory();
-        int scanWorkers = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
+        int scanWorkers = Math.min(3, Math.max(2, Runtime.getRuntime().availableProcessors() - 2));
         workers = Executors.newFixedThreadPool(WORKERS, factory);
         scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
                 scanWorkers, scanWorkers,
