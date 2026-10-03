@@ -12,7 +12,7 @@ public class PrimitiveChunkSnapshot {
     }
 
     public static void releaseArray(long[] arr) {
-        if (arr != null && arr.length == 131072 && POOL.size() < 2048) {
+        if (arr != null && arr.length == 131072 && POOL.size() < 128) {
             POOL.offer(arr);
         }
     }

@@ -102,10 +102,10 @@ public final class UploadService {
             net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
-        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
+        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) { if (snapshot != null) snapshot.release();
             return;
         }
-        scanExecutor.execute(() -> {
+        java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) scanExecutor; if (executor.getQueue().size() >= 64) { if (snapshot != null) snapshot.release(); return; } scanExecutor.execute(() -> {
             try {
                 int contentHash = snapshot.hashCode();
                 long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
@@ -152,7 +152,7 @@ public final class UploadService {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
             return;
         }
-        scanExecutor.execute(() -> {
+        java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) scanExecutor; if (executor.getQueue().size() >= 64) { return; } scanExecutor.execute(() -> {
             try {
                 int payloadHash = java.util.Arrays.hashCode(rawBytes);
                 long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
