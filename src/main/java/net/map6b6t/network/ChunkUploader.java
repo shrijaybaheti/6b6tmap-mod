@@ -72,6 +72,7 @@ final class ChunkUploader {
                     .timeout(REQUEST_TIMEOUT)
                     .header("Content-Type", "application/octet-stream")
                     .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
+                    .header(Protocol.MOD_VERSION_HEADER, Protocol.MOD_VERSION)
                     .header("X-Player-Name", jobs.isEmpty() ? "binary" : jobs.get(0).playerName)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(payload));
             String token = ConfigManager.get().submitToken;
