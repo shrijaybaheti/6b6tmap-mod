@@ -19,7 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[131072]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(1048576).order(java.nio.ByteOrder.LITTLE_ENDIAN));
+final class ChunkUploader { private static final ThreadLocal<java.util.Map<String, Integer>> PALETTE_MAP = ThreadLocal.withInitial(java.util.HashMap::new); private static final ThreadLocal<java.util.List<String>> PALETTE_LIST = ThreadLocal.withInitial(java.util.ArrayList::new); private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[131072]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(1048576).order(java.nio.ByteOrder.LITTLE_ENDIAN));
     private static final int GZIP_AFTER_BYTES = 256;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
@@ -59,7 +59,7 @@ final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFE
                 byte[] gzip = job.preEncodedGzip;
                 if (gzip == null) gzip = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
                 if (gzip == null) {
-                    gzip = gzip(encodeBlocks(job.blocks, job.chunkX, job.chunkZ));
+                    gzip = encodeBlocks(job.blocks, job.chunkX, job.chunkZ);
                 }
                 dos.writeInt(gzip.length);
                 dos.write(gzip);
@@ -234,8 +234,8 @@ final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFE
             public static byte[] encodeBlocks(Object blocksObj, int chunkX, int chunkZ) {
         if (blocksObj == null) return new byte[0];
         
-        java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
-        java.util.List<String> paletteList = new java.util.ArrayList<>();
+        java.util.Map<String, Integer> paletteMap = PALETTE_MAP.get(); paletteMap.clear();
+        java.util.List<String> paletteList = PALETTE_LIST.get(); paletteList.clear();
         
         int[] encodedBlocks = ENCODE_BUFFER.get();
         int validCount = 0;
@@ -312,7 +312,7 @@ final class ChunkUploader { private static final ThreadLocal<int[]> ENCODE_BUFFE
             buf.putInt(encodedBlocks[i]);
         }
         
-        return java.util.Arrays.copyOf(buf.array(), capacity);
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(2048); try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos)) { gos.write(buf.array(), 0, capacity); } catch (java.io.IOException e) { return new byte[0]; } return bos.toByteArray();
     }
 
     private static String unzipToString(byte[] gzipBytes) throws IOException {
