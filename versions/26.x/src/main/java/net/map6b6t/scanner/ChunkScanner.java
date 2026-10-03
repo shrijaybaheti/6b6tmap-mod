@@ -36,7 +36,7 @@ public class ChunkScanner {
     }
 
     public static PrimitiveChunkSnapshot snapshotAndScanSections(LevelChunkSection[] sections, int bottomY) {
-        long[] array = new long[4096];
+        long[] array = PrimitiveChunkSnapshot.borrowArray();
         int size = 0;
         
         if (sections == null) {
@@ -51,9 +51,9 @@ public class ChunkScanner {
 
             int sectionBaseY = bottomY + (sectionIndex << 4);
 
-            for (int rx = 0; rx < 16; rx++) {
+            for (int ry = 0; ry < 16; ry++) {
                 for (int rz = 0; rz < 16; rz++) {
-                    for (int ry = 0; ry < 16; ry++) {
+                    for (int rx = 0; rx < 16; rx++) {
                         BlockState state = section.getBlockState(rx, ry, rz);
                         FluidState fluidState = section.getFluidState(rx, ry, rz);
 

@@ -4,9 +4,8 @@ import net.map6b6t.scanner.ScannedBlock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.http.HttpClient;
+
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +28,6 @@ public final class UploadService {
     private ExecutorService workers;
     private ExecutorService scanExecutor;
     private Thread statsThread;
-    private HttpClient httpClient;
     private volatile UploadListener uploadListener;
 
     public static UploadService get() {
@@ -43,20 +41,20 @@ public final class UploadService {
         running.set(true);
         batchEnabled.set(true);
         ThreadFactory factory = new WorkerFactory();
-        int scanWorkers = Math.max(2, Runtime.getRuntime().availableProcessors() / 4);
+        int scanWorkers = Math.min(3, Math.max(2, Runtime.getRuntime().availableProcessors() - 2));
         workers = Executors.newFixedThreadPool(WORKERS, factory);
         scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
                 scanWorkers, scanWorkers,
                 0L, TimeUnit.MILLISECONDS,
-                new java.util.concurrent.ArrayBlockingQueue<>(4096),
+                new java.util.concurrent.ArrayBlockingQueue<>(128),
                 new ScanWorkerFactory(),
-                new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
+                new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()
         );
-        httpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
-        ChunkUploader uploader = new ChunkUploader(httpClient);
+        
+                
+                
+                
+        ChunkUploader uploader = new ChunkUploader();
         for (int i = 0; i < WORKERS; i++) {
             workers.execute(new UploadWorker(queue, uploader, stats, this));
         }
@@ -92,6 +90,7 @@ public final class UploadService {
         LOGGER.info("Upload service stopped ({})", stats.snapshot());
     }
 
+        
     public void submitAsyncScan(
             String dimension,
             net.minecraft.world.level.chunk.LevelChunk chunk,
@@ -101,16 +100,72 @@ public final class UploadService {
             String serverVersion,
             java.util.function.BiConsumer<Long, Integer> onHashComputed
     ) {
+        net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
+        submitAsyncScan(dimension, chunkX, chunkZ, playerName, serverVersion, snapshot, onHashComputed);
+    }
+
+    public void submitAsyncScan(
+            String dimension,
+            int chunkX,
+            int chunkZ,
+            String playerName,
+            String serverVersion,
+            net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot,
+            java.util.function.BiConsumer<Long, Integer> onHashComputed
+    ) {
+        if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) { if (snapshot != null) snapshot.release();
+            return;
+        }
+        scanExecutor.execute(() -> {
+            try {
+                int contentHash = snapshot.hashCode();
+                long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
+                if (onHashComputed != null) {
+                    onHashComputed.accept(chunkKey, contentHash);
+                }
+
+                byte[] encodedGzip = null;
+                try {
+                    
+                    encodedGzip = ChunkUploader.encodeBlocks(snapshot, chunkX, chunkZ);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to gzip chunk", e); } finally { snapshot.release();
+                }
+
+                ChunkSubmission job = new ChunkSubmission(
+                        dimension,
+                        chunkX,
+                        chunkZ,
+                        playerName,
+                        serverVersion,
+                        null,
+                        contentHash,
+                        encodedGzip
+                );
+                
+                queue.offer(job);
+                
+            } catch (Exception e) {
+                LOGGER.error("Failed async chunk scan", e);
+            }
+        });
+    }
+
+    public void submitRawPacketAsync(
+            String dimension,
+            int chunkX,
+            int chunkZ,
+            String playerName,
+            String serverVersion,
+            byte[] rawBytes,
+            java.util.function.BiConsumer<Long, Integer> onHashComputed
+    ) {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
             return;
         }
         scanExecutor.execute(() -> {
             try {
-                net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
-                if (snapshot == null || snapshot.size == 0) {
-                    return;
-                }
-                int payloadHash = ChunkSubmission.contentHash(snapshot);
+                int payloadHash = java.util.Arrays.hashCode(rawBytes);
                 long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
                 if (onHashComputed != null) {
                     onHashComputed.accept(chunkKey, payloadHash);
@@ -122,24 +177,28 @@ public final class UploadService {
                         chunkZ,
                         playerName,
                         serverVersion,
-                        snapshot,
+                        null,
                         payloadHash
                 );
 
                 byte[] encodedGzip = null;
                 try {
-                    byte[] rawJson = ChunkUploader.encodeSingle(job);
-                    encodedGzip = ChunkUploader.gzip(rawJson);
+                    // Send as base64 in json, or modify the server to accept raw multipart.
+                    // For now, we will create a dummy PrimitiveChunkSnapshot or just write the raw bytes to disk.
+                    // Actually, if we just gzip the raw bytes and send it!
+                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                    try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos)) {
+                        gos.write(rawBytes);
+                    }
+                    encodedGzip = bos.toByteArray();
+                    
                     if (encodedGzip != null) {
                         DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
                     }
                 } catch (Exception ignored) {
                 }
 
-                ChunkSubmission finalizedJob = encodedGzip != null
-                        ? new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null)
-                        : job;
-
+                ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null);
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
                 switch (result) {
                     case DEDUPLICATED -> stats.markDeduplicated();
@@ -150,54 +209,14 @@ public final class UploadService {
                 stats.setQueueSize(queue.size());
                 stats.setUploading(queue.uploadingCount());
             } catch (Exception e) {
-                LOGGER.warn("Async chunk scan failed for {},{}: {}", chunkX, chunkZ, e.toString());
+                LOGGER.warn("Async raw chunk scan failed for {},{}: {}", chunkX, chunkZ, e.toString());
             }
         });
     }
 
-    public UploadQueue.OfferResult submit(
-            String dimension,
-            int chunkX,
-            int chunkZ,
-            String playerName,
-            String serverVersion,
-            net.map6b6t.scanner.PrimitiveChunkSnapshot blocks
-    ) {
-        if (!running.get() || blocks == null || blocks.size == 0) {
-            return UploadQueue.OfferResult.REJECTED;
-        }
-        int payloadHash = ChunkSubmission.contentHash(blocks);
-        byte[] encodedGzip = null;
-        try {
-            ChunkSubmission temp = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, blocks, payloadHash);
-            byte[] rawJson = ChunkUploader.encodeSingle(temp);
-            encodedGzip = ChunkUploader.gzip(rawJson);
-            if (encodedGzip != null) {
-                DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
-            }
-        } catch (Exception ignored) {
-        }
-        ChunkSubmission job = new ChunkSubmission(
-                dimension,
-                chunkX,
-                chunkZ,
-                playerName,
-                serverVersion,
-                encodedGzip != null ? null : blocks,
-                payloadHash,
-                null
-        );
-        UploadQueue.OfferResult result = queue.offer(job);
-        switch (result) {
-            case DEDUPLICATED -> stats.markDeduplicated();
-            case REPLACED -> stats.markReplaced();
-            default -> {
-            }
-        }
-        stats.setQueueSize(queue.size());
-        stats.setUploading(queue.uploadingCount());
-        return result;
-    }
+    
+
+    
 
     public boolean shouldPauseScanning() {
         return !running.get() || queue.shouldPauseScanning();
@@ -280,3 +299,6 @@ public final class UploadService {
         }
     }
 }
+
+
+
