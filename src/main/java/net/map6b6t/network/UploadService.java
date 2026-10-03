@@ -48,9 +48,9 @@ public final class UploadService {
         scanExecutor = new java.util.concurrent.ThreadPoolExecutor(
                 scanWorkers, scanWorkers,
                 0L, TimeUnit.MILLISECONDS,
-                new java.util.concurrent.ArrayBlockingQueue<>(1024),
+                new java.util.concurrent.ArrayBlockingQueue<>(128),
                 new ScanWorkerFactory(),
-                new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy()
+                new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()
         );
         httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -105,7 +105,7 @@ public final class UploadService {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) { if (snapshot != null) snapshot.release();
             return;
         }
-        java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) scanExecutor; if (executor.getQueue().size() >= 64) { if (snapshot != null) snapshot.release(); return; } scanExecutor.execute(() -> {
+        scanExecutor.execute(() -> {
             try {
                 int contentHash = snapshot.hashCode();
                 long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
@@ -152,7 +152,7 @@ public final class UploadService {
         if (!running.get() || scanExecutor == null || scanExecutor.isShutdown()) {
             return;
         }
-        java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) scanExecutor; if (executor.getQueue().size() >= 64) { return; } scanExecutor.execute(() -> {
+        scanExecutor.execute(() -> {
             try {
                 int payloadHash = java.util.Arrays.hashCode(rawBytes);
                 long chunkKey = (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
