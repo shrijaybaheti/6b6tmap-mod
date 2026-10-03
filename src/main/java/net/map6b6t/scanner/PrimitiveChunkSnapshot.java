@@ -8,11 +8,11 @@ public class PrimitiveChunkSnapshot {
 
     public static long[] borrowArray() {
         long[] arr = POOL.poll();
-        return arr != null ? arr : new long[131072];
+        return arr != null ? arr : new long[8192];
     }
 
     public static void releaseArray(long[] arr) {
-        if (arr != null && arr.length == 131072 && POOL.size() < 8) {
+        if (arr != null && arr.length <= 32768 && POOL.size() < 16) {
             POOL.offer(arr);
         }
     }

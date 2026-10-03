@@ -34,6 +34,7 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);
             conn.setDoOutput(true);
+            conn.setFixedLengthStreamingMode(body.length);
             conn.setRequestProperty("Content-Type", contentType);
             conn.setRequestProperty(Protocol.HEADER, String.valueOf(Protocol.VERSION));
             conn.setRequestProperty(Protocol.MOD_VERSION_HEADER, Protocol.MOD_VERSION);
