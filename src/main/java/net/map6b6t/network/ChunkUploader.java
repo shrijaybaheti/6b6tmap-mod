@@ -74,6 +74,7 @@ final class ChunkUploader {
                     .header(Protocol.HEADER, String.valueOf(Protocol.VERSION))
                     .header(Protocol.MOD_VERSION_HEADER, Protocol.MOD_VERSION)
                     .header("X-Player-Name", jobs.isEmpty() ? "binary" : jobs.get(0).playerName)
+                    .header("X-Dimension", jobs.isEmpty() ? "minecraft:overworld" : jobs.get(0).dimension)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(payload));
             String token = ConfigManager.get().submitToken;
             if (token != null && !token.isBlank()) {
