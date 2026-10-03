@@ -36,7 +36,7 @@ final class ChunkUploader {
         if (gzipped != null) {
             return sendGzipDirect(url, gzipped);
         }
-        return send(url, encodeBlocks(job.blocks));
+        return send(url, encodeBlocks(job.blocks, job.chunkX, job.chunkZ));
     }
 
     private static String batchRawUrl(String base) {
@@ -59,7 +59,7 @@ final class ChunkUploader {
                 byte[] gzip = job.preEncodedGzip;
                 if (gzip == null) gzip = DiskCache.load(job.dimension, job.chunkX, job.chunkZ);
                 if (gzip == null) {
-                    gzip = gzip(encodeBlocks(job.blocks));
+                    gzip = gzip(encodeBlocks(job.blocks, job.chunkX, job.chunkZ));
                 }
                 dos.writeInt(gzip.length);
                 dos.write(gzip);
@@ -231,8 +231,8 @@ final class ChunkUploader {
         return submitUrl;
     }
 
-            public static byte[] encodeBlocks(Object blocks) {
-        if (blocks == null) return new byte[0];
+            public static byte[] encodeBlocks(Object blocksObj, int chunkX, int chunkZ) {
+        if (blocksObj == null) return new byte[0];
         
         java.util.Map<String, Integer> paletteMap = new java.util.HashMap<>();
         java.util.List<String> paletteList = new java.util.ArrayList<>();
@@ -240,8 +240,8 @@ final class ChunkUploader {
         int[] encodedBlocks;
         int validCount = 0;
         
-        if (blocks instanceof net.map6b6t.scanner.PrimitiveChunkSnapshot) {
-            net.map6b6t.scanner.PrimitiveChunkSnapshot snap = (net.map6b6t.scanner.PrimitiveChunkSnapshot) blocks;
+        if (blocksObj instanceof net.map6b6t.scanner.PrimitiveChunkSnapshot) {
+            net.map6b6t.scanner.PrimitiveChunkSnapshot snap = (net.map6b6t.scanner.PrimitiveChunkSnapshot) blocksObj;
             long[] blocks = snap.blocks;
             int size = snap.size;
             encodedBlocks = new int[size];
@@ -262,8 +262,8 @@ final class ChunkUploader {
                 
                 encodedBlocks[validCount++] = (x << 28) | (z << 24) | (((y + 64) & 0x3FF) << 14) | (pIdx & 0x3FFF);
             }
-        } else if (job.blocks instanceof java.util.List) {
-            java.util.List<?> list = (java.util.List<?>) job.blocks;
+        } else if (blocksObj instanceof java.util.List) {
+            java.util.List<?> list = (java.util.List<?>) blocksObj;
             encodedBlocks = new int[list.size()];
             for (Object obj : list) {
                 try {
@@ -298,8 +298,8 @@ final class ChunkUploader {
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(capacity).order(java.nio.ByteOrder.LITTLE_ENDIAN);
         
         buf.put((byte) 2);
-        buf.putInt(job.chunkX);
-        buf.putInt(job.chunkZ);
+        buf.putInt(chunkX);
+        buf.putInt(chunkZ);
         buf.putShort((short) paletteList.size());
         
         for (byte[] pBytes : pBytesArray) {
@@ -332,7 +332,7 @@ final class ChunkUploader {
             if (gzip != null) {
                 sb.append(unzipToString(gzip));
             } else {
-                sb.append(new String(encodeBlocks(job.blocks), StandardCharsets.UTF_8));
+                sb.append(new String(encodeBlocks(job.blocks, job.chunkX, job.chunkZ), StandardCharsets.UTF_8));
             }
         }
         sb.append("]}");
