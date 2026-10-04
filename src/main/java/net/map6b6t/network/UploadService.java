@@ -167,6 +167,7 @@ public final class UploadService {
                       .append(",\"chunkZ\":").append(chunkZ)
                       .append(",\"player\":\"").append(safePlayer).append("\"")
                       .append(",\"serverVersion\":\"").append(safeVer).append("\"")
+                      .append(",\"gameVersion\":\"").append(safeVer).append("\"")
                       .append(",\"minY\":").append(-64)
                       .append(",\"worldHeight\":").append(384)
                       .append(",\"rawPacketBuffer\":[");

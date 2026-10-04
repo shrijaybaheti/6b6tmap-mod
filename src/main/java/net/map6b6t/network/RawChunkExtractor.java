@@ -25,7 +25,7 @@ public class RawChunkExtractor {
             if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
             
             String dimension = client.world.getRegistryKey().getValue().toString();
-            String serverVer = "1.21.1";
+            String serverVer = client.getGameVersion();
             
             final String fPlayerName = playerName;
             final String fDimension = dimension;
