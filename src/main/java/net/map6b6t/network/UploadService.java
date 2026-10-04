@@ -160,9 +160,13 @@ public final class UploadService {
 
                 byte[] encodedGzip = null;
                 try {
-                    StringBuilder sb = new StringBuilder(rawBytes.length * 4 + 300);
+                    String safePlayer = (playerName != null && !playerName.trim().isEmpty()) ? playerName.trim() : "Player";
+                    String safeVer = (serverVersion != null && !serverVersion.trim().isEmpty()) ? serverVersion.trim() : "1.21.1";
+                    StringBuilder sb = new StringBuilder(rawBytes.length * 4 + 400);
                     sb.append("{\"chunkX\":").append(chunkX)
                       .append(",\"chunkZ\":").append(chunkZ)
+                      .append(",\"player\":\"").append(safePlayer).append("\"")
+                      .append(",\"serverVersion\":\"").append(safeVer).append("\"")
                       .append(",\"minY\":").append(-64)
                       .append(",\"worldHeight\":").append(384)
                       .append(",\"rawPacketBuffer\":[");
