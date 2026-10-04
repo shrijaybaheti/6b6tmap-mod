@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientPlayNetworkHandlerMixin {
     @Inject(method = "handleLevelChunkWithLight", at = @At("HEAD"))
     private void onChunkPacket(ClientboundLevelChunkWithLightPacket packet, CallbackInfo ci) {
-        byte[] raw = packet.getChunkData().getChunkData();
+        byte[] raw = net.map6b6t.scanner.RawChunkExtractor.extractSectionsData(packet);
         if (raw != null && raw.length > 0) {
             SpawnMapMod.getInstance().handleRawChunkPacket(packet.getX(), packet.getZ(), raw);
         } else {
@@ -20,3 +20,4 @@ public class ClientPlayNetworkHandlerMixin {
         }
     }
 }
+
