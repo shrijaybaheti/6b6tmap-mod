@@ -1,10 +1,9 @@
 package net.map6b6t.network;
 
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.map6b6t.scanner.ChunkScanner;
-import net.map6b6t.scanner.PrimitiveChunkSnapshot;
+import java.util.concurrent.CompletableFuture;
 
 public class RawChunkExtractor {
     public static void extractAndUpload(ClientboundLevelChunkWithLightPacket packet) {
@@ -13,30 +12,28 @@ public class RawChunkExtractor {
         if (client.player == null || client.level == null) return;
         
         try {
+            FriendlyByteBuf buf = packet.getChunkData().getReadBuffer();
+            byte[] rawBytes = new byte[buf.readableBytes()];
+            buf.getBytes(buf.readerIndex(), rawBytes);
             int chunkX = packet.getX();
             int chunkZ = packet.getZ();
-            LevelChunk chunk = client.level.getChunk(chunkX, chunkZ);
-            if (chunk == null) return;
-            
-            PrimitiveChunkSnapshot snapshot = ChunkScanner.takeSnapshot(chunk);
-            if (snapshot.size == 0) {
-                snapshot.release();
-                return;
-            }
             
             String playerName = client.player.getName().getString();
             if (net.map6b6t.config.ConfigManager.get().playerOverride != null && !net.map6b6t.config.ConfigManager.get().playerOverride.trim().isEmpty()) {
                 playerName = net.map6b6t.config.ConfigManager.get().playerOverride.trim();
             }
-            if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
-                snapshot.release();
-                return;
-            }
+            if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
             
             String dimension = net.map6b6t.EnvBridge.getDimension(client.level);
-            String serverVer = "1.20.4";
+            String serverVer = "1.21.1";
             
-            UploadService.get().submitAsyncScan(dimension, chunkX, chunkZ, playerName, serverVer, snapshot, null);
+            final String fPlayerName = playerName;
+            final String fDimension = dimension;
+            final String fServerVer = serverVer;
+            
+            CompletableFuture.runAsync(() -> {
+                UploadService.get().submitRawPacketAsync(fDimension, chunkX, chunkZ, fPlayerName, fServerVer, rawBytes, null);
+            });
         } catch (Exception ignored) {
         }
     }

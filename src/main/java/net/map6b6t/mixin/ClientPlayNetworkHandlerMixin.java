@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(net.minecraft.client.network.ClientPlayNetworkHandler.class)
 public class ClientPlayNetworkHandlerMixin {
-    @Inject(method = "onChunkData", at = @At("TAIL"))
+    @Inject(method = "onChunkData", at = @At("HEAD"))
     private void onChunkData(ChunkDataS2CPacket packet, CallbackInfo info) {
         net.map6b6t.network.RawChunkExtractor.extractAndUpload(packet);
     }
