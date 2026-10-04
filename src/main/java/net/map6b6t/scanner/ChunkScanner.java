@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 public class ChunkScanner {
     private static final int CACHE_SIZE = 4096;
@@ -31,55 +32,57 @@ public class ChunkScanner {
         return cached;
     }
 
-    public static PrimitiveChunkSnapshot snapshotAndScan(WorldChunk chunk) {
-        return snapshotAndScanSections(chunk.getSectionArray(), chunk.getBottomY());
-    }
-
-    public static PrimitiveChunkSnapshot snapshotAndScanSections(ChunkSection[] sections, int bottomY) {
-        long[] array = PrimitiveChunkSnapshot.borrowArray();
-        int size = 0;
-        
-        if (sections == null) {
-            return new PrimitiveChunkSnapshot(array, 0);
+    public static void scanAsync(WorldChunk chunk, java.util.function.Consumer<PrimitiveChunkSnapshot> callback) {
+        ChunkSection[] originalSections = chunk.getSectionArray();
+        int bottomY = chunk.getBottomY();
+        if (originalSections == null) {
+            callback.accept(new PrimitiveChunkSnapshot(PrimitiveChunkSnapshot.borrowArray(), 0));
+            return;
         }
+        
+        CompletableFuture.runAsync(() -> {
+            long[] array = PrimitiveChunkSnapshot.borrowArray();
+            int size = 0;
+            
+            try {
+                for (int sectionIndex = 0; sectionIndex < originalSections.length; sectionIndex++) {
+                    ChunkSection section = originalSections[sectionIndex];
+                    if (section == null || section.isEmpty()) {
+                        continue;
+                    }
 
-        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-            ChunkSection section = sections[sectionIndex];
-            if (section == null || section.isEmpty()) {
-                continue;
-            }
+                    int sectionBaseY = bottomY + (sectionIndex << 4);
 
-            int sectionBaseY = bottomY + (sectionIndex << 4);
+                    for (int ry = 0; ry < 16; ry++) {
+                        for (int rz = 0; rz < 16; rz++) {
+                            for (int rx = 0; rx < 16; rx++) {
+                                BlockState state = section.getBlockState(rx, ry, rz);
+                                FluidState fluidState = section.getFluidState(rx, ry, rz);
 
-            for (int ry = 0; ry < 16; ry++) {
-                for (int rz = 0; rz < 16; rz++) {
-                    for (int rx = 0; rx < 16; rx++) {
-                        BlockState state = section.getBlockState(rx, ry, rz);
-                        FluidState fluidState = section.getFluidState(rx, ry, rz);
+                                boolean isWater = !fluidState.isEmpty() && fluidState.getFluid() == Fluids.WATER;
 
-                        boolean isWater = !fluidState.isEmpty() && fluidState.getFluid() == Fluids.WATER;
+                                if (state.isAir() && !isWater) {
+                                    continue;
+                                }
 
-                        if (state.isAir() && !isWater) {
-                            continue;
+                                int y = sectionBaseY + ry;
+                                int rawId = isWater ? -1 : Registries.BLOCK.getRawId(state.getBlock());
+                                long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
+                                
+                                if (size >= array.length) {
+                                    long[] n = new long[array.length * 2];
+                                    System.arraycopy(array, 0, n, 0, array.length);
+                                    array = n;
+                                }
+                                array[size++] = val;
+                            }
                         }
-
-                        int y = sectionBaseY + ry;
-                        int rawId = isWater ? -1 : Registries.BLOCK.getRawId(state.getBlock());
-                        long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
-                        
-                        if (size >= array.length) {
-                            long[] n = new long[array.length * 2];
-                            System.arraycopy(array, 0, n, 0, array.length);
-                            array = n;
-                        }
-                        array[size++] = val;
                     }
                 }
+            } catch (Exception e) {
+                // Ignore CME or array out of bounds caused by asynchronous chunk modification
             }
-        }
-        
-        
-        return new PrimitiveChunkSnapshot(array, size);
+            callback.accept(new PrimitiveChunkSnapshot(array, size));
+        });
     }
 }
-

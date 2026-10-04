@@ -54,8 +54,8 @@ public class SpawnMapMod implements ClientModInitializer {
             playerName = config.playerOverride.trim();
         }
         if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
-        String dimension = client.world.getRegistryKey().getValue().toString();
-        String serverVer = resolveServerVersion(client);
+        final String dimension = client.world.getRegistryKey().getValue().toString();
+        final String serverVer = resolveServerVersion(client);
         long key = net.minecraft.util.math.ChunkPos.toLong(chunkX, chunkZ);
         rawHandledChunks.add(key);
         net.map6b6t.network.UploadService.get().submitRawPacketAsync(dimension, chunkX, chunkZ, playerName, serverVer, raw, lastSeenHash::put);
@@ -93,7 +93,7 @@ public class SpawnMapMod implements ClientModInitializer {
             lastSeenHash.clear();
         }
 
-        net.minecraft.util.math.ChunkPos pos = chunk.getPos();
+        final net.minecraft.util.math.ChunkPos pos = chunk.getPos();
         if (!config.isChunkWithinSpawn(pos.x, pos.z)) {
             return;
         }
@@ -111,19 +111,10 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
 
-        String dimension = client.world.getRegistryKey().getValue().toString();
-        String serverVer = resolveServerVersion(client);
+        final String dimension = client.world.getRegistryKey().getValue().toString();
+        final String serverVer = resolveServerVersion(client);
 
-        net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
-        net.map6b6t.network.UploadService.get().submitAsyncScan(
-                dimension,
-                pos.x,
-                pos.z,
-                playerName,
-                serverVer,
-                snapshot,
-                lastSeenHash::put
-        );
+        final String finalPlayerName = playerName; net.map6b6t.scanner.ChunkScanner.scanAsync(chunk, snapshot -> { net.map6b6t.network.UploadService.get().submitAsyncScan(dimension, pos.x, pos.z, finalPlayerName, serverVer, snapshot, lastSeenHash::put); });
     }
 
 
@@ -361,5 +352,11 @@ public class SpawnMapMod implements ClientModInitializer {
         return "";
     }
 }
+
+
+
+
+
+
 
 

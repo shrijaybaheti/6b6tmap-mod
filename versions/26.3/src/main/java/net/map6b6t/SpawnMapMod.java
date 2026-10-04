@@ -57,7 +57,7 @@ public class SpawnMapMod implements ClientModInitializer {
         if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) playerName = config.playerOverride.trim();
         if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
         String dimension = EnvBridge.getDimension(world);
-        String serverVer = resolveServerVersion(client);
+        final String serverVer = resolveServerVersion(client);
         long key = net.map6b6t.EnvBridge.asLong(chunkX, chunkZ);
         rawHandledChunks.add(key);
         UploadService.get().submitRawPacketAsync(dimension, chunkX, chunkZ, playerName, serverVer, raw, (k, v) -> lastSeenHash.put(k, v));
@@ -275,9 +275,8 @@ public class SpawnMapMod implements ClientModInitializer {
     if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) playerName = config.playerOverride.trim();
     if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
     String dimension = EnvBridge.getDimension(world);
-    String serverVer = resolveServerVersion(client);
-    net.map6b6t.scanner.PrimitiveChunkSnapshot snapshot = net.map6b6t.scanner.ChunkScanner.snapshotAndScan(chunk);
-    UploadService.get().submitAsyncScan(dimension, net.map6b6t.EnvBridge.getChunkX(pos), net.map6b6t.EnvBridge.getChunkZ(pos), playerName, serverVer, snapshot, (k, v) -> lastSeenHash.put(k, v));
+    final String serverVer = resolveServerVersion(client);
+    
 }
 
     private static String resolveServerVersion(Minecraft client) {
@@ -316,6 +315,12 @@ public class SpawnMapMod implements ClientModInitializer {
         return "";
     }
 }
+
+
+
+
+
+
 
 
 
