@@ -10,8 +10,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPlayNetworkHandlerMixin {
-    @Inject(method = "handleLevelChunkWithLight", at = @At("RETURN"))
-    private void afterChunkData(ClientboundLevelChunkWithLightPacket packet, CallbackInfo ci) {
-        SpawnMapMod.getInstance().markChunkReceived(packet.getX(), packet.getZ());
+    @Inject(method = "handleLevelChunkWithLight", at = @At("HEAD"))
+    private void onChunkPacket(ClientboundLevelChunkWithLightPacket packet, CallbackInfo ci) {
+        byte[] raw = packet.getChunkData().getChunkData();
+        if (raw != null && raw.length > 0) {
+            SpawnMapMod.getInstance().handleRawChunkPacket(packet.getX(), packet.getZ(), raw);
+        } else {
+            SpawnMapMod.getInstance().markChunkReceived(packet.getX(), packet.getZ());
+        }
     }
 }

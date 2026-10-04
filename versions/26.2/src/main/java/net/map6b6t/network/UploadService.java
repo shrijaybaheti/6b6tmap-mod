@@ -184,7 +184,7 @@ public final class UploadService {
                 } catch (Exception ignored) {
                 }
 
-                ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null);
+                ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip);
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
                 switch (result) {
                     case DEDUPLICATED -> stats.markDeduplicated();

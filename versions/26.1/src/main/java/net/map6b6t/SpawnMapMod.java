@@ -35,13 +35,37 @@ public class SpawnMapMod implements ClientModInitializer {
     private static final int LAST_SEEN_MAX = 500_000;
     private ClientLevel lastWorld = null;
     private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private final java.util.Set<Long> rawHandledChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     public void markChunkReceived(int x, int z) {
         networkChunks.add(net.map6b6t.EnvBridge.asLong(x, z));
     }
 
+    public void handleRawChunkPacket(int chunkX, int chunkZ, byte[] raw) {
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
+        if (world == null || !is6b6tServer(client)) return;
+        ModConfig config = ConfigManager.get();
+        if (!config.enabled) return;
+        if (!config.isChunkWithinSpawn(chunkX, chunkZ)) return;
+        if (UploadService.get().shouldPauseScanning()) {
+            markChunkReceived(chunkX, chunkZ);
+            return;
+        }
+        LocalPlayer player = client.player;
+        String playerName = resolvePlayerName(player);
+        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) playerName = config.playerOverride.trim();
+        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
+        String dimension = EnvBridge.getDimension(world);
+        String serverVer = resolveServerVersion(client);
+        long key = net.map6b6t.EnvBridge.asLong(chunkX, chunkZ);
+        rawHandledChunks.add(key);
+        UploadService.get().submitRawPacketAsync(dimension, chunkX, chunkZ, playerName, serverVer, raw, (k, v) -> lastSeenHash.put(k, v));
+    }
+
     private void onChunkLoad(net.minecraft.client.multiplayer.ClientLevel world, net.minecraft.world.level.chunk.LevelChunk chunk) {
         long posLong = net.map6b6t.EnvBridge.asLong(net.map6b6t.EnvBridge.getChunkX(chunk.getPos()), net.map6b6t.EnvBridge.getChunkZ(chunk.getPos()));
+        if (rawHandledChunks.remove(posLong)) return;
         if (networkChunks.remove(posLong)) {
             handleIncomingServerChunk(chunk);
         }
