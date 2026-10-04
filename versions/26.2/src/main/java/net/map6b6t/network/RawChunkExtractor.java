@@ -17,6 +17,8 @@ public class RawChunkExtractor {
             buf.getBytes(buf.readerIndex(), rawBytes);
             int chunkX = packet.getX();
             int chunkZ = packet.getZ();
+            int minY = client.level.getMinY();
+            int worldHeight = client.level.getHeight();
             
             String playerName = client.player.getName().getString();
             if (net.map6b6t.config.ConfigManager.get().playerOverride != null && !net.map6b6t.config.ConfigManager.get().playerOverride.trim().isEmpty()) {
@@ -32,7 +34,7 @@ public class RawChunkExtractor {
             final String fServerVer = serverVer;
             
             CompletableFuture.runAsync(() -> {
-                UploadService.get().submitRawPacketAsync(fDimension, chunkX, chunkZ, fPlayerName, fServerVer, rawBytes, null);
+                UploadService.get().submitRawPacketAsync(fDimension, chunkX, chunkZ, minY, worldHeight, fPlayerName, fServerVer, rawBytes, null);
             });
         } catch (Exception ignored) {
         }

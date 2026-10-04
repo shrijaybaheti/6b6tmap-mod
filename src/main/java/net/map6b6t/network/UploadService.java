@@ -142,6 +142,8 @@ public final class UploadService {
             String dimension,
             int chunkX,
             int chunkZ,
+            int minY,
+            int worldHeight,
             String playerName,
             String serverVersion,
             byte[] rawBytes,
@@ -168,8 +170,9 @@ public final class UploadService {
                       .append(",\"player\":\"").append(safePlayer).append("\"")
                       .append(",\"serverVersion\":\"").append(safeVer).append("\"")
                       .append(",\"gameVersion\":\"").append(safeVer).append("\"")
-                      .append(",\"minY\":").append(-64)
-                      .append(",\"worldHeight\":").append(384)
+                      .append(",\"dimension\":\"").append(dimension != null ? dimension : "minecraft:overworld").append("\"")
+                      .append(",\"minY\":").append(minY)
+                      .append(",\"worldHeight\":").append(worldHeight)
                       .append(",\"rawPacketBuffer\":[");
                     for (int i = 0; i < rawBytes.length; i++) {
                         if (i > 0) sb.append(',');
@@ -202,6 +205,18 @@ public final class UploadService {
                 LOGGER.warn("Async raw chunk scan failed for {},{}: {}", chunkX, chunkZ, e.toString());
             }
         });
+    }
+
+    public void submitRawPacketAsync(
+            String dimension,
+            int chunkX,
+            int chunkZ,
+            String playerName,
+            String serverVersion,
+            byte[] rawBytes,
+            java.util.function.BiConsumer<Long, Integer> onHashComputed
+    ) {
+        submitRawPacketAsync(dimension, chunkX, chunkZ, -64, 384, playerName, serverVersion, rawBytes, onHashComputed);
     }
 
     
