@@ -33,13 +33,38 @@ public class SpawnMapMod implements ClientModInitializer {
     private static final int LAST_SEEN_MAX = 500_000;
     private ClientWorld lastWorld = null;
     private final java.util.Set<Long> networkChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private final java.util.Set<Long> rawHandledChunks = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     public void markChunkReceived(int x, int z) {
         networkChunks.add(net.minecraft.util.math.ChunkPos.toLong(x, z));
     }
 
+    public void handleRawChunkPacket(int chunkX, int chunkZ, byte[] raw) {
+        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+        if (client.world == null || !is6b6tServer(client)) return;
+        net.map6b6t.config.ModConfig config = net.map6b6t.config.ConfigManager.get();
+        if (!config.enabled) return;
+        if (!config.isChunkWithinSpawn(chunkX, chunkZ)) return;
+        if (net.map6b6t.network.UploadService.get().shouldPauseScanning()) {
+            markChunkReceived(chunkX, chunkZ);
+            return;
+        }
+        String playerName = resolvePlayerName(client.player);
+        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
+            playerName = config.playerOverride.trim();
+        }
+        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
+        String dimension = client.world.getRegistryKey().getValue().toString();
+        String serverVer = resolveServerVersion(client);
+        long key = net.minecraft.util.math.ChunkPos.toLong(chunkX, chunkZ);
+        rawHandledChunks.add(key);
+        net.map6b6t.network.UploadService.get().submitRawPacketAsync(dimension, chunkX, chunkZ, playerName, serverVer, raw, lastSeenHash::put);
+    }
+
     private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
-        if (networkChunks.remove(chunk.getPos().toLong())) {
+        long posLong = chunk.getPos().toLong();
+        if (rawHandledChunks.remove(posLong)) return;
+        if (networkChunks.remove(posLong)) {
             handleIncomingServerChunk(chunk);
         }
     }

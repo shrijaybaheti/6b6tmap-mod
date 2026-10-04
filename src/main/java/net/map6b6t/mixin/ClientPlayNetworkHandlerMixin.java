@@ -10,8 +10,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPlayNetworkHandler.class)
 public class ClientPlayNetworkHandlerMixin {
-    @Inject(method = "onChunkData", at = @At("RETURN"))
-    private void afterChunkData(ChunkDataS2CPacket packet, CallbackInfo ci) {
-        SpawnMapMod.getInstance().markChunkReceived(packet.getChunkX(), packet.getChunkZ());
+    @Inject(method = "onChunkData", at = @At("HEAD"))
+    private void beforeChunkData(ChunkDataS2CPacket packet, CallbackInfo ci) {
+        byte[] raw = net.map6b6t.scanner.RawChunkExtractor.extractSectionsData(packet);
+        if (raw != null && raw.length > 0) {
+            SpawnMapMod.getInstance().handleRawChunkPacket(packet.getChunkX(), packet.getChunkZ(), raw);
+        } else {
+            SpawnMapMod.getInstance().markChunkReceived(packet.getChunkX(), packet.getChunkZ());
+        }
     }
 }
