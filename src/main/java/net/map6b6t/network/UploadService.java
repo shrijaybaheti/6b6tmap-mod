@@ -173,8 +173,13 @@ public final class UploadService {
                     // Send as base64 in json, or modify the server to accept raw multipart.
                     // For now, we will create a dummy PrimitiveChunkSnapshot or just write the raw bytes to disk.
                     // Actually, if we just gzip the raw bytes and send it!
-                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                    java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                    header.put((byte) 3);
+                    header.putInt(chunkX);
+                    header.putInt(chunkZ);
+                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(rawBytes.length + 9);
                     try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos)) {
+                        gos.write(header.array());
                         gos.write(rawBytes);
                     }
                     encodedGzip = bos.toByteArray();
@@ -286,6 +291,7 @@ public final class UploadService {
         }
     }
 }
+
 
 
 
