@@ -158,45 +158,38 @@ public final class UploadService {
                     onHashComputed.accept(chunkKey, payloadHash);
                 }
 
-                ChunkSubmission job = new ChunkSubmission(
-                        dimension,
-                        chunkX,
-                        chunkZ,
-                        playerName,
-                        serverVersion,
-                        null,
-                        payloadHash
-                );
-
                 byte[] encodedGzip = null;
                 try {
-                    // Send as base64 in json, or modify the server to accept raw multipart.
-                    // For now, we will create a dummy PrimitiveChunkSnapshot or just write the raw bytes to disk.
-                    // Actually, if we just gzip the raw bytes and send it!
-                    java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-                    header.put((byte) 3);
-                    header.putInt(chunkX);
-                    header.putInt(chunkZ);
-                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(rawBytes.length + 9);
+                    StringBuilder sb = new StringBuilder(rawBytes.length * 4 + 300);
+                    sb.append("{\"chunkX\":").append(chunkX)
+                      .append(",\"chunkZ\":").append(chunkZ)
+                      .append(",\"minY\":").append(-64)
+                      .append(",\"worldHeight\":").append(384)
+                      .append(",\"rawPacketBuffer\":[");
+                    for (int i = 0; i < rawBytes.length; i++) {
+                        if (i > 0) sb.append(',');
+                        sb.append(rawBytes[i] & 0xFF);
+                    }
+                    sb.append("]}");
+
+                    byte[] jsonBytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(jsonBytes.length / 2);
                     try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos)) {
-                        gos.write(header.array());
-                        gos.write(rawBytes);
+                        gos.write(jsonBytes);
                     }
                     encodedGzip = bos.toByteArray();
-                    
                     if (encodedGzip != null) {
                         DiskCache.save(dimension, chunkX, chunkZ, encodedGzip);
                     }
                 } catch (Exception ignored) {
                 }
 
-                ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, null);
+                ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip);
                 UploadQueue.OfferResult result = queue.offer(finalizedJob);
                 switch (result) {
                     case DEDUPLICATED -> stats.markDeduplicated();
                     case REPLACED -> stats.markReplaced();
-                    default -> {
-                    }
+                    default -> {}
                 }
                 stats.setQueueSize(queue.size());
                 stats.setUploading(queue.uploadingCount());
