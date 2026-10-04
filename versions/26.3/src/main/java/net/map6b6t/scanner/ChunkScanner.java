@@ -5,10 +5,7 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.LevelChunk;
-
 import net.minecraft.core.registries.BuiltInRegistries;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -32,61 +29,51 @@ public class ChunkScanner {
         return cached;
     }
 
-    public static void scanAsync(LevelChunk chunk, java.util.function.Consumer<PrimitiveChunkSnapshot> callback) {
+    public static PrimitiveChunkSnapshot takeSnapshot(LevelChunk chunk) {
         LevelChunkSection[] originalSections = chunk.getSections();
         int bottomY = -64;
         if (originalSections == null) {
-            callback.accept(new PrimitiveChunkSnapshot(PrimitiveChunkSnapshot.borrowArray(), 0));
-            return;
+            return new PrimitiveChunkSnapshot(PrimitiveChunkSnapshot.borrowArray(), 0);
         }
-        
-        CompletableFuture.runAsync(() -> {
-            long[] array = PrimitiveChunkSnapshot.borrowArray();
-            int size = 0;
-            
-            try {
-                for (int sectionIndex = 0; sectionIndex < originalSections.length; sectionIndex++) {
-                    LevelChunkSection section = originalSections[sectionIndex];
-                    if (section == null || section.hasOnlyAir()) {
-                        continue;
-                    }
-
-                    int sectionBaseY = bottomY + (sectionIndex << 4);
-
-                    for (int ry = 0; ry < 16; ry++) {
-                        for (int rz = 0; rz < 16; rz++) {
-                            for (int rx = 0; rx < 16; rx++) {
-                                BlockState state = section.getBlockState(rx, ry, rz);
-                                FluidState fluidState = section.getFluidState(rx, ry, rz);
-
-                                boolean isWater = !fluidState.isEmpty() && fluidState.getType() == Fluids.WATER;
-
-                                if (state.isAir() && !isWater) {
-                                    continue;
-                                }
-
-                                int y = sectionBaseY + ry;
-                                int rawId = isWater ? -1 : BuiltInRegistries.BLOCK.getId(state.getBlock());
-                                long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
-                                
-                                if (size >= array.length) {
-                                    long[] n = new long[array.length * 2];
-                                    System.arraycopy(array, 0, n, 0, array.length);
-                                    array = n;
-                                }
-                                array[size++] = val;
+        long[] array = PrimitiveChunkSnapshot.borrowArray();
+        int size = 0;
+        try {
+            for (int sectionIndex = 0; sectionIndex < originalSections.length; sectionIndex++) {
+                LevelChunkSection section = originalSections[sectionIndex];
+                if (section == null || section.hasOnlyAir()) {
+                    continue;
+                }
+                int sectionBaseY = bottomY + (sectionIndex << 4);
+                for (int ry = 0; ry < 16; ry++) {
+                    for (int rz = 0; rz < 16; rz++) {
+                        for (int rx = 0; rx < 16; rx++) {
+                            BlockState state = section.getBlockState(rx, ry, rz);
+                            FluidState fluidState = section.getFluidState(rx, ry, rz);
+                            boolean isWater = !fluidState.isEmpty() && fluidState.getType() == Fluids.WATER;
+                            if (state.isAir() && !isWater) {
+                                continue;
                             }
+                            int y = sectionBaseY + ry;
+                            int rawId = isWater ? -1 : BuiltInRegistries.BLOCK.getId(state.getBlock());
+                            long val = ((long)rx & 0xF) | (((long)y & 0x1FFF) << 4) | (((long)rz & 0xF) << 17) | (((long)rawId & 0xFFFFFFFFL) << 21);
+                            if (size >= array.length) {
+                                long[] n = new long[array.length * 2];
+                                System.arraycopy(array, 0, n, 0, array.length);
+                                array = n;
+                            }
+                            array[size++] = val;
                         }
                     }
                 }
-            } catch (Exception e) {
-                // Ignore CME or array out of bounds caused by asynchronous chunk modification
             }
-            callback.accept(new PrimitiveChunkSnapshot(array, size));
+        } catch (Exception ignored) {
+        }
+        return new PrimitiveChunkSnapshot(array, size);
+    }
+
+    public static void scanAsync(LevelChunk chunk, java.util.function.Consumer<PrimitiveChunkSnapshot> callback) {
+        CompletableFuture.runAsync(() -> {
+            callback.accept(takeSnapshot(chunk));
         });
     }
 }
-
-
-
-
