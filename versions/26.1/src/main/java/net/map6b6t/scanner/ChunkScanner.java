@@ -31,7 +31,7 @@ public class ChunkScanner {
 
     public static PrimitiveChunkSnapshot takeSnapshot(LevelChunk chunk) {
         LevelChunkSection[] originalSections = chunk.getSections();
-        int bottomY = -64;
+        int bottomY = net.map6b6t.EnvBridge.getMinBuildHeight(chunk);
         if (originalSections == null) {
             return new PrimitiveChunkSnapshot(PrimitiveChunkSnapshot.borrowArray(), 0);
         }
