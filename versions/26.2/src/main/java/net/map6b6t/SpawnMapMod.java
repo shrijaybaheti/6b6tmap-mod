@@ -276,7 +276,12 @@ public class SpawnMapMod implements ClientModInitializer {
     if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
     String dimension = EnvBridge.getDimension(world);
     final String serverVer = resolveServerVersion(client);
-    
+    final int chunkX = net.map6b6t.EnvBridge.getChunkX(pos);
+    final int chunkZ = net.map6b6t.EnvBridge.getChunkZ(pos);
+    final String finalPlayerName = playerName;
+    net.map6b6t.scanner.ChunkScanner.scanAsync(chunk, snapshot -> {
+        UploadService.get().submitAsyncScan(dimension, chunkX, chunkZ, finalPlayerName, serverVer, snapshot, (k, v) -> lastSeenHash.put(k, v));
+    });
 }
 
     private static String resolveServerVersion(Minecraft client) {
