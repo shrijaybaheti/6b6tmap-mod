@@ -1,34 +1,9 @@
 pluginManagement {
     repositories {
-        maven { url = "https://maven.fabricmc.net/" }
+        maven { url = 'https://maven.fabricmc.net/' }
         mavenCentral()
         gradlePluginPortal()
     }
 }
 
 rootProject.name = 'map6b6t'
-
-include ':mc1204'
-project(':mc1204').projectDir = file('versions/1.20.4')
-
-include ':mc12111'
-project(':mc12111').projectDir = file('versions/1.21.11')
-
-include ':mc26x'
-project(':mc26x').projectDir = file('versions/26.x')
-
-include ':mc120'
-project(':mc120').projectDir = file('versions/1.20')
-include ':mc1211'
-project(':mc1211').projectDir = file('versions/1.21.1')
-include ':mc1214'
-project(':mc1214').projectDir = file('versions/1.21.4')
-include ':mc1215'
-project(':mc1215').projectDir = file('versions/1.21.5')
-include ':mc261'
-project(':mc261').projectDir = file('versions/26.1')
-include ':mc262'
-project(':mc262').projectDir = file('versions/26.2')
-include ':mc263'
-project(':mc263').projectDir = file('versions/26.3')
-

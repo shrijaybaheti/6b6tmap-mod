@@ -21,10 +21,7 @@ public class RawChunkExtractor {
             int worldHeight = client.world.getHeight();
             
             String playerName = client.player.getName().getString();
-            if (net.map6b6t.config.ConfigManager.get().playerOverride != null && !net.map6b6t.config.ConfigManager.get().playerOverride.trim().isEmpty()) {
-                playerName = net.map6b6t.config.ConfigManager.get().playerOverride.trim();
-            }
-            if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
+            if (playerName == null || playerName.isBlank()) return;
             
             String dimension = client.world.getRegistryKey().getValue().toString();
             String serverVer = client.getGameVersion();

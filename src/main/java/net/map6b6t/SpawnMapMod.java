@@ -50,10 +50,7 @@ public class SpawnMapMod implements ClientModInitializer {
             return;
         }
         String playerName = resolvePlayerName(client.player);
-        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
-            playerName = config.playerOverride.trim();
-        }
-        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) return;
+        if (playerName == null || playerName.isBlank()) return;
         final String dimension = client.world.getRegistryKey().getValue().toString();
         final String serverVer = resolveServerVersion(client);
         long key = net.minecraft.util.math.ChunkPos.toLong(chunkX, chunkZ);
@@ -62,6 +59,7 @@ public class SpawnMapMod implements ClientModInitializer {
     }
 
     private void onChunkLoad(net.minecraft.client.world.ClientWorld world, net.minecraft.world.chunk.WorldChunk chunk) {
+        net.map6b6t.gui.MinimapOverlay.capture(chunk, world.getRegistryKey().getValue().toString());
         long posLong = chunk.getPos().toLong();
         if (rawHandledChunks.remove(posLong)) return;
         if (networkChunks.remove(posLong)) {
@@ -103,11 +101,7 @@ public class SpawnMapMod implements ClientModInitializer {
         }
 
         String playerName = resolvePlayerName(client.player);
-        if (config.playerOverride != null && !config.playerOverride.trim().isEmpty()) {
-            playerName = config.playerOverride.trim();
-        }
-        if (playerName == null || playerName.isBlank() || "livemaptest1234".equals(playerName)) {
-            net.map6b6t.network.UploadService.get().stats().setLastError("Set your name: /6b6tmap player YourName");
+        if (playerName == null || playerName.isBlank()) {
             return;
         }
 
@@ -148,8 +142,37 @@ public class SpawnMapMod implements ClientModInitializer {
         }
     }
 
-    private void resetSessionCache() {
+    public void resetSessionCache() {
         lastSeenHash.clear();
+    }
+
+    private int setEnabled(FabricClientCommandSource source, boolean enabled) {
+        ModConfig config = ConfigManager.get();
+        config.enabled = enabled;
+        ConfigManager.save();
+        source.sendFeedback(createText("6b6t Map " + (enabled ? "enabled" : "disabled")).copy().formatted(Formatting.AQUA));
+        return 1;
+    }
+
+    private com.mojang.brigadier.builder.LiteralArgumentBuilder<FabricClientCommandSource> hudSetting(String target) {
+        return ClientCommandManager.literal(target)
+                .executes(context -> setHud(context.getSource(), target, null))
+                .then(ClientCommandManager.literal("on").executes(context -> setHud(context.getSource(), target, true)))
+                .then(ClientCommandManager.literal("off").executes(context -> setHud(context.getSource(), target, false)));
+    }
+
+    private int setHud(FabricClientCommandSource source, String target, Boolean enabled) {
+        ModConfig config = ConfigManager.get();
+        boolean next;
+        switch (target) {
+            case "map" -> next = config.showMinimap = enabled == null ? !config.showMinimap : enabled;
+            case "void" -> next = config.showVoidHud = enabled == null ? !config.showVoidHud : enabled;
+            case "nametag" -> next = config.showNametagHud = enabled == null ? !config.showNametagHud : enabled;
+            default -> next = config.showHud = enabled == null ? !config.showHud : enabled;
+        }
+        ConfigManager.save();
+        source.sendFeedback(createText("HUD " + target + " " + (next ? "shown" : "hidden")).copy().formatted(Formatting.AQUA));
+        return 1;
     }
 
     @Override
@@ -159,20 +182,21 @@ public class SpawnMapMod implements ClientModInitializer {
                 lastSeenHash.put(ChunkPos.toLong(chunkX, chunkZ), contentHash));
         UploadService.get().start();
         net.map6b6t.gui.HudOverlay.register();
+        net.map6b6t.gui.VoidHudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> UploadService.get().shutdown());
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register(this::onChunkLoad);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("6b6tmap")
+                .executes(context -> {
+                    net.map6b6t.gui.ScreenBridge.set(new net.map6b6t.gui.MapConfigScreen(this::resetSessionCache));
+                    return 1;
+                })
                 .then(ClientCommandManager.literal("toggle")
-                    .executes(context -> {
-                        ModConfig config = ConfigManager.get();
-                        config.enabled = !config.enabled;
-                        ConfigManager.save();
-                        context.getSource().sendFeedback(createText("6b6t Map " + (config.enabled ? "enabled" : "disabled")).copy().formatted(Formatting.AQUA));
-                        return 1;
-                    })
+                    .executes(context -> setEnabled(context.getSource(), !ConfigManager.get().enabled))
+                    .then(ClientCommandManager.literal("on").executes(context -> setEnabled(context.getSource(), true)))
+                    .then(ClientCommandManager.literal("off").executes(context -> setEnabled(context.getSource(), false)))
                 )
                 .then(ClientCommandManager.literal("status")
                     .executes(context -> {
@@ -195,14 +219,19 @@ public class SpawnMapMod implements ClientModInitializer {
                     })
                 )
                 .then(ClientCommandManager.literal("hud")
-                    .executes(context -> {
-                        ModConfig config = ConfigManager.get();
-                        config.showHud = !config.showHud;
-                        ConfigManager.save();
-                        context.getSource().sendFeedback(createText("HUD " + (config.showHud ? "shown" : "hidden")).copy().formatted(Formatting.AQUA));
+                    .then(hudSetting("status"))
+                    .then(hudSetting("map"))
+                    .then(hudSetting("void"))
+                    .then(hudSetting("nametag"))
+                    .then(ClientCommandManager.literal("edit").executes(context -> {
+                        net.map6b6t.gui.ScreenBridge.set(net.map6b6t.gui.HudEditorScreens.create());
                         return 1;
-                    })
+                    }))
                 )
+                .then(ClientCommandManager.literal("gui").executes(context -> {
+                    net.map6b6t.gui.ScreenBridge.set(new net.map6b6t.gui.MapConfigScreen(this::resetSessionCache));
+                    return 1;
+                }))
                 .then(ClientCommandManager.literal("server")
                     .then(ClientCommandManager.argument("url", StringArgumentType.greedyString())
                         .executes(context -> {
@@ -219,52 +248,22 @@ public class SpawnMapMod implements ClientModInitializer {
                         })
                     )
                 )
-                .then(ClientCommandManager.literal("player")
-                    .then(ClientCommandManager.argument("name", StringArgumentType.string())
-                        .executes(context -> {
-                            String name = StringArgumentType.getString(context, "name");
-                            ModConfig config = ConfigManager.get();
-                            config.playerOverride = name;
-                            ConfigManager.save();
-                            context.getSource().sendFeedback(createText("Player name set to: " + name).copy().formatted(Formatting.AQUA));
-                            return 1;
-                        })
-                    )
-                )
                 .then(ClientCommandManager.literal("token")
                     .then(ClientCommandManager.argument("value", StringArgumentType.string())
                         .executes(context -> {
-                            String value = StringArgumentType.getString(context, "value");
                             ModConfig config = ConfigManager.get();
-                            config.submitToken = value;
+                            config.submitToken = StringArgumentType.getString(context, "value");
                             ConfigManager.save();
-                            context.getSource().sendFeedback(createText("Submit token updated.").copy().formatted(Formatting.AQUA));
+                            context.getSource().sendFeedback(createText("Upload authentication token updated; it is used to authorize chunk submissions.").copy().formatted(Formatting.AQUA));
                             return 1;
                         })
                     )
                 )
                 .then(ClientCommandManager.literal("area")
                     .executes(context -> showArea(context.getSource()))
-                    .then(ClientCommandManager.literal("spawn")
-                        .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
-                        .then(ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
-                            .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
-                        )
-                    )
-                    .then(ClientCommandManager.literal("world")
-                        .executes(context -> setWorldArea(context.getSource()))
-                    )
-                )
-                .then(ClientCommandManager.literal("bounds")
-                    .executes(context -> showArea(context.getSource()))
-                    .then(ClientCommandManager.literal("spawn")
-                        .executes(context -> setSpawnArea(context.getSource(), ModConfig.DEFAULT_SPAWN_RADIUS))
-                        .then(ClientCommandManager.argument("radius", IntegerArgumentType.integer(16, 30_000_000))
-                            .executes(context -> setSpawnArea(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))
-                        )
-                    )
-                    .then(ClientCommandManager.literal("world")
-                        .executes(context -> setWorldArea(context.getSource()))
+                    .then(ClientCommandManager.literal("world").executes(context -> setWorldArea(context.getSource())))
+                    .then(ClientCommandManager.argument("diameter", IntegerArgumentType.integer(32, ModConfig.MAX_AREA_DIAMETER))
+                        .executes(context -> setAreaDiameter(context.getSource(), IntegerArgumentType.getInteger(context, "diameter")))
                     )
                 )
             );
@@ -273,16 +272,19 @@ public class SpawnMapMod implements ClientModInitializer {
 
     private int showArea(FabricClientCommandSource source) {
         ModConfig config = ConfigManager.get();
-        source.sendFeedback(createText("Recording: " + config.formatBounds()
-                + ". Default is 5000 from spawn. Use /6b6tmap area world to record anywhere.").copy().formatted(Formatting.AQUA));
+        source.sendFeedback(createText("Recording area: " + config.formatBounds()
+                + ". Use /6b6tmap area <diameter> or /6b6tmap area world.").copy().formatted(Formatting.AQUA));
         return 1;
     }
 
-    private int setSpawnArea(FabricClientCommandSource source, int radius) {
+    private int setAreaDiameter(FabricClientCommandSource source, int diameter) {
         ModConfig config = ConfigManager.get();
-        config.setSpawnRadius(radius);
+        if (!config.setAreaDiameter(diameter)) {
+            source.sendFeedback(createText("Area diameter must be between 32 and " + ModConfig.MAX_AREA_DIAMETER).copy().formatted(Formatting.GREEN));
+            return 0;
+        }
         ConfigManager.save();
-        source.sendFeedback(createText("Recording limited to " + radius + " blocks from spawn. Chunks outside that are not sent.").copy().formatted(Formatting.GREEN));
+        source.sendFeedback(createText("Recording area set to " + config.formatBounds()).copy().formatted(Formatting.GREEN));
         return 1;
     }
 

@@ -7,6 +7,12 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -19,6 +25,7 @@ public final class UploadService {
     private static final UploadService INSTANCE = new UploadService();
     private static final int WORKERS = 4;
     private static final long STATS_EVERY_MS = 15_000L;
+    private static final long UPLOAD_COOLDOWN_NANOS = TimeUnit.MINUTES.toNanos(10);
 
     private final UploadQueue queue = new UploadQueue();
     private final NetworkStats stats = new NetworkStats();
@@ -29,6 +36,15 @@ public final class UploadService {
     private ExecutorService scanExecutor;
     private Thread statsThread;
     private volatile UploadListener uploadListener;
+    private final Map<ChunkSubmission.Key, Long> recentlyUploaded = new HashMap<>();
+    private final Set<ChunkSubmission.Key> loadedChunks = new HashSet<>();
+    private long loadedChunksVersion;
+    private long cachedLoadedChunksVersion = -1;
+    private String cachedLoadedDimension;
+    private int cachedLoadedCenterX, cachedLoadedCenterZ, cachedLoadedRadius;
+    private List<ChunkSubmission.Key> cachedLoadedChunks = List.of();
+
+    public enum ChunkUploadState { NONE, QUEUED, UPLOADING, UPLOADED }
 
     public static UploadService get() {
         return INSTANCE;
@@ -130,7 +146,7 @@ public final class UploadService {
                         encodedGzip
                 );
                 
-                queue.offer(job);
+                offerUnlessCoolingDown(job);
                 
             } catch (Exception e) {
                 LOGGER.error("Failed async chunk scan", e);
@@ -193,7 +209,7 @@ public final class UploadService {
                 }
 
                 ChunkSubmission finalizedJob = new ChunkSubmission(dimension, chunkX, chunkZ, playerName, serverVersion, null, payloadHash, encodedGzip);
-                UploadQueue.OfferResult result = queue.offer(finalizedJob);
+                UploadQueue.OfferResult result = offerUnlessCoolingDown(finalizedJob);
                 switch (result) {
                     case DEDUPLICATED -> stats.markDeduplicated();
                     case REPLACED -> stats.markReplaced();
@@ -246,6 +262,9 @@ public final class UploadService {
     }
 
     void notifyUploaded(ChunkSubmission job) {
+        synchronized (recentlyUploaded) {
+            recentlyUploaded.put(job.key, System.nanoTime());
+        }
         UploadListener listener = uploadListener;
         if (listener != null && job != null) {
             listener.onUploaded(job.chunkX, job.chunkZ, job.contentHash);
@@ -254,6 +273,50 @@ public final class UploadService {
 
     public NetworkStats stats() {
         return stats;
+    }
+
+    public ChunkUploadState chunkState(String dimension, int chunkX, int chunkZ) {
+        ChunkUploadState current = queue.stateAt(dimension, chunkX, chunkZ);
+        if (current != ChunkUploadState.NONE) return current;
+        synchronized (recentlyUploaded) {
+            return recentlyUploaded.containsKey(new ChunkSubmission.Key(dimension, chunkX, chunkZ))
+                    ? ChunkUploadState.UPLOADED : ChunkUploadState.NONE;
+        }
+    }
+
+    private UploadQueue.OfferResult offerUnlessCoolingDown(ChunkSubmission job) {
+        synchronized (recentlyUploaded) {
+            Long uploadedAt = recentlyUploaded.get(job.key);
+            if (uploadedAt != null && System.nanoTime() - uploadedAt < UPLOAD_COOLDOWN_NANOS)
+                return UploadQueue.OfferResult.DEDUPLICATED;
+            return queue.offer(job);
+        }
+    }
+
+    public void markChunkLoaded(String dimension, int chunkX, int chunkZ) {
+        synchronized (loadedChunks) {
+            if (loadedChunks.add(new ChunkSubmission.Key(dimension, chunkX, chunkZ))) loadedChunksVersion++;
+        }
+    }
+
+    public java.util.List<ChunkSubmission.Key> loadedChunksWithin(String dimension, int centerX, int centerZ, int radius) {
+        synchronized (loadedChunks) {
+            if (cachedLoadedChunksVersion == loadedChunksVersion && java.util.Objects.equals(cachedLoadedDimension, dimension)
+                    && cachedLoadedCenterX == centerX && cachedLoadedCenterZ == centerZ && cachedLoadedRadius == radius)
+                return cachedLoadedChunks;
+            List<ChunkSubmission.Key> result = new ArrayList<>();
+            for (ChunkSubmission.Key key : loadedChunks) {
+                if (key.dimension.equals(dimension) && Math.abs((long) key.chunkX - centerX) <= radius
+                        && Math.abs((long) key.chunkZ - centerZ) <= radius) result.add(key);
+            }
+            cachedLoadedChunks = List.copyOf(result);
+            cachedLoadedDimension = dimension;
+            cachedLoadedCenterX = centerX;
+            cachedLoadedCenterZ = centerZ;
+            cachedLoadedRadius = radius;
+            cachedLoadedChunksVersion = loadedChunksVersion;
+            return cachedLoadedChunks;
+        }
     }
 
     public int queueSize() {

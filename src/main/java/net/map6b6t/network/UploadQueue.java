@@ -150,6 +150,15 @@ public final class UploadQueue {
         }
     }
 
+    public UploadService.ChunkUploadState stateAt(String dimension, int chunkX, int chunkZ) {
+        ChunkSubmission.Key key = new ChunkSubmission.Key(dimension, chunkX, chunkZ);
+        synchronized (lock) {
+            if (uploading.contains(key)) return UploadService.ChunkUploadState.UPLOADING;
+            if (queuedByChunk.containsKey(key)) return UploadService.ChunkUploadState.QUEUED;
+            return UploadService.ChunkUploadState.NONE;
+        }
+    }
+
     public boolean shouldPauseScanning() {
         return cachedSize >= PAUSE_SCAN_AT;
     }

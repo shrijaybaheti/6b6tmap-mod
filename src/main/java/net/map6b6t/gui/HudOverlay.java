@@ -1,199 +1,102 @@
 package net.map6b6t.gui;
 
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.map6b6t.config.ConfigManager;
 import net.map6b6t.config.ModConfig;
 import net.map6b6t.network.NetworkStats;
 import net.map6b6t.network.UploadService;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.text.Text;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
+import java.util.List;
 
-public class HudOverlay {
-    @FunctionalInterface
-    private interface TextDrawer {
-        void draw(Object context, Object font, String text, int x, int y, int color) throws Exception;
-    }
-
-    private static TextDrawer cachedDrawer = null;
+public final class HudOverlay {
+    private HudOverlay() {}
 
     public static void register() {
-        try {
-            Class<?> callbackClass = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback");
-            Field eventField = callbackClass.getField("EVENT");
-            Object event = eventField.get(null);
-            Method registerMethod = null;
-            for (Method m : Class.forName("net.fabricmc.fabric.api.event.Event").getMethods()) {
-                if (m.getName().equals("register") && m.getParameterCount() == 1) {
-                    registerMethod = m;
-                    break;
-                }
-            }
-
-            Object proxy = Proxy.newProxyInstance(
-                callbackClass.getClassLoader(),
-                new Class<?>[] { callbackClass },
-                (p, method, args) -> {
-                    if (args != null && args.length >= 1 && args[0] != null) {
-                        renderHud(args[0]);
-                    }
-                    return null;
-                }
-            );
-
-            if (registerMethod != null) {
-                registerMethod.invoke(event, proxy);
-                return;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        try {
-            Class<?> registry = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry");
-            Class<?> hudElement = Class.forName("net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement");
-            Class<?> identifierClass;
-            try {
-                identifierClass = Class.forName("net.minecraft.util.Identifier");
-            } catch (ClassNotFoundException e) {
-                identifierClass = Class.forName("net.minecraft.resources.ResourceLocation");
-            }
-            Object id = null;
-            try {
-                id = identifierClass.getMethod("of", String.class, String.class).invoke(null, "map6b6t", "status");
-            } catch (Exception e1) {
-                try {
-                    id = identifierClass.getMethod("fromNamespaceAndPath", String.class, String.class).invoke(null, "map6b6t", "status");
-                } catch (Exception e2) {
-                    try {
-                        id = identifierClass.getConstructor(String.class, String.class).newInstance("map6b6t", "status");
-                    } catch (Exception e3) {}
-                }
-            }
-            Object element = java.lang.reflect.Proxy.newProxyInstance(
-                hudElement.getClassLoader(),
-                new Class<?>[] { hudElement },
-                (p, method, args) -> {
-                    if (args != null && args.length >= 1 && args[0] != null) {
-                        renderHud(args[0]);
-                    }
-                    return null;
-                }
-            );
-            Object registryInstance = null;
-            try {
-                registryInstance = registry.getField("INSTANCE").get(null);
-            } catch (Exception ignored) {}
-            
-            try {
-                registry.getMethod("addLast", identifierClass, hudElement).invoke(registryInstance, id, element);
-            } catch (NoSuchMethodException e) {
-                registry.getMethod("attachElementAfter", identifierClass, identifierClass, hudElement)
-                        .invoke(registryInstance, id, id, element);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        HudRenderCallback.EVENT.register((context, tickCounter) -> render(context));
     }
 
-    private static void renderHud(Object renderContext) {
+    private static void render(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.options.hudHidden) {
-            return;
-        }
+        if (client.player == null || client.options.hudHidden) return;
 
         ModConfig config = ConfigManager.get();
-        if (!config.enabled || !config.showHud) {
-            return;
-        }
+        if (config.showNametagHud) NametagCounts.refreshIfNeeded(client);
+        if (config.showHud) renderStatus(context, client, config);
+        if (config.showMinimap) MinimapOverlay.render(context, client);
+    }
 
+    private static void renderStatus(DrawContext context, MinecraftClient client, ModConfig config) {
         int chunkX = client.player.getChunkPos().x;
         int chunkZ = client.player.getChunkPos().z;
         boolean inSpawn = config.isChunkWithinSpawn(chunkX, chunkZ);
-
         NetworkStats stats = UploadService.get().stats();
         boolean paused = UploadService.get().shouldPauseScanning();
         String status;
-        int color;
-        if (config.isLocalServerUrl()) {
+        if (!config.enabled) {
+            status = "6b6t Map: DISABLED";
+        } else if (config.isLocalServerUrl()) {
             status = "6b6t Map: SET /6b6tmap server";
-            color = 0xFF5555;
         } else if (!inSpawn) {
             status = "6b6t Map: OUT OF BOUNDS";
-            color = 0xFFAA00;
         } else if (paused) {
             status = "6b6t Map: UPLOAD BACKLOG";
-            color = 0xFFAA00;
         } else if (stats.failed() > 0 && stats.uploaded() == 0) {
             status = "6b6t Map: UPLOAD FAILED";
-            color = 0xFF5555;
         } else {
             status = "6b6t Map: SCANNING";
-            color = 0x55FF55;
         }
-        String count = "Up " + stats.uploaded() + "  Q " + stats.queueSize() + "  Fail " + stats.failed();
-        String extra = stats.lastError() != null && !stats.lastError().isBlank()
-                ? stats.lastError()
-                : "Area " + config.formatBounds();
+        String count = "Uploaded: " + stats.uploaded() + "  Queue: " + stats.queueSize()
+                + "  Now: " + stats.uploading() + "  Failed: " + stats.failed();
 
-        drawText(renderContext, client, status, 8, 8, color);
-        drawText(renderContext, client, count, 8, 18, 0xFFFFFF);
-        drawText(renderContext, client, extra, 8, 28, 0xAAAAAA);
+        float scale = Math.max(0.6f, Math.min(2f, config.statusHudScale / 100f));
+        int screenWidth = client.getWindow().getScaledWidth();
+        int screenHeight = client.getWindow().getScaledHeight();
+        int textWidth = Math.max(client.textRenderer.getWidth(status), client.textRenderer.getWidth(count));
+        int x = Math.max(0, Math.min(screenWidth - (int) (textWidth * scale), config.statusHudX));
+        int y = Math.max(0, Math.min(screenHeight - (int) (24 * scale), config.statusHudY));
+        Object matrices = context.getMatrices();
+        boolean pushed = false;
+        try {
+            invokeMatrix(matrices, List.of("pushMatrix", "push"));
+            pushed = true;
+            invokeTranslate(matrices, x, y);
+            invokeScale(matrices, scale);
+            context.drawText(client.textRenderer, Text.literal(status), 0, 0, 0xFFFFFFFF, true);
+            context.drawText(client.textRenderer, Text.literal(count), 0, 11, 0xFFFFFFFF, true);
+        } catch (ReflectiveOperationException exception) {
+            context.drawText(client.textRenderer, Text.literal(status), x, y, 0xFFFFFFFF, true);
+            context.drawText(client.textRenderer, Text.literal(count), x, y + 11, 0xFFFFFFFF, true);
+        } finally {
+            if (pushed) try { invokeMatrix(matrices, List.of("popMatrix", "pop")); } catch (ReflectiveOperationException ignored) {}
+        }
     }
 
-    private static void drawText(Object context, MinecraftClient client, String text, int x, int y, int color) {
-        if (context == null || client.textRenderer == null) return;
+    private static void invokeMatrix(Object matrix, List<String> names) throws ReflectiveOperationException {
+        for (String name : names) try { matrix.getClass().getMethod(name).invoke(matrix); return; }
+        catch (NoSuchMethodException ignored) {}
+        throw new NoSuchMethodException(names.toString());
+    }
 
-        if (cachedDrawer != null) {
-            try {
-                cachedDrawer.draw(context, client.textRenderer, text, x, y, color);
-                return;
-            } catch (Exception ignored) {
-                cachedDrawer = null;
-            }
+    private static void invokeTranslate(Object matrix, float x, float y) throws ReflectiveOperationException {
+        for (var method : matrix.getClass().getMethods()) {
+            if (!method.getName().equals("translate")) continue;
+            Class<?>[] p = method.getParameterTypes();
+            if (p.length == 2 && p[0] == float.class && p[1] == float.class) { method.invoke(matrix, x, y); return; }
+            if (p.length == 3 && p[0] == double.class && p[1] == double.class && p[2] == double.class) { method.invoke(matrix, (double)x, (double)y, 0d); return; }
         }
+        throw new NoSuchMethodException("translate");
+    }
 
-        for (Method m : context.getClass().getMethods()) {
-            if (m.getName().startsWith("drawText") || m.getName().startsWith("drawString") || m.getName().equals("method_51433") || m.getName().equals("method_51438")) {
-                Class<?>[] params = m.getParameterTypes();
-                if (params.length == 5 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, t, px, py, c);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-                if (params.length == 6 && params[1] == String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, t, px, py, c, true);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-                if (params.length == 6 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class && params[5] == boolean.class) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, net.minecraft.text.Text.literal(t), px, py, c, true);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-                if (params.length == 5 && params[1] != String.class && params[2] == int.class && params[3] == int.class && params[4] == int.class) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(ctx, font, net.minecraft.text.Text.literal(t), px, py, c);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-            }
+    private static void invokeScale(Object matrix, float scale) throws ReflectiveOperationException {
+        for (var method : matrix.getClass().getMethods()) {
+            if (!method.getName().equals("scale")) continue;
+            Class<?>[] p = method.getParameterTypes();
+            if (p.length == 2 && p[0] == float.class && p[1] == float.class) { method.invoke(matrix, scale, scale); return; }
+            if (p.length == 3 && p[0] == float.class && p[1] == float.class && p[2] == float.class) { method.invoke(matrix, scale, scale, 1f); return; }
         }
-
-        for (Method m : client.textRenderer.getClass().getMethods()) {
-            if (m.getName().startsWith("drawWithShadow") || m.getName().equals("method_27521") || m.getName().equals("method_1720")) {
-                Class<?>[] params = m.getParameterTypes();
-                if (params.length == 5 && params[1] == String.class && (params[2] == float.class || params[2] == int.class)) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(font, ctx, t, (float) px, (float) py, c);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-                if (params.length == 5 && params[1] != String.class && (params[2] == float.class || params[2] == int.class)) {
-                    cachedDrawer = (ctx, font, t, px, py, c) -> m.invoke(font, ctx, net.minecraft.text.Text.literal(t), (float) px, (float) py, c);
-                    try { cachedDrawer.draw(context, client.textRenderer, text, x, y, color); } catch (Exception ignored) {}
-                    return;
-                }
-            }
-        }
+        throw new NoSuchMethodException("scale");
     }
 }

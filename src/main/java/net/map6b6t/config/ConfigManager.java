@@ -58,12 +58,12 @@ public class ConfigManager {
         if (loaded.submitToken == null || loaded.submitToken.isBlank()) {
             loaded.submitToken = defaults.submitToken;
         }
-        if (loaded.playerOverride == null) {
-            loaded.playerOverride = "";
-        }
         if (!loaded.recordWorld && loaded.spawnRadius <= 0) {
             loaded.spawnRadius = ModConfig.DEFAULT_SPAWN_RADIUS;
         }
+        if (loaded.minimapHudSize <= 0) loaded.minimapHudSize = defaults.minimapHudSize;
+        if (loaded.voidHudSize <= 0) loaded.voidHudSize = defaults.voidHudSize;
+        if (loaded.statusHudScale <= 0) loaded.statusHudScale = defaults.statusHudScale;
     }
 
     private static boolean isLocalUrl(String url) {

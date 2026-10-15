@@ -3,34 +3,158 @@ plugins {
     id 'net.fabricmc.fabric-loom' version '1.18.2' apply false
 }
 
-tasks.register('jars') {
-    group = 'build'
-    description = 'Build Fabric jars for 1.20, 1.21.1, 1.21.4, 1.21.5, 1.21.11, 26.1, 26.2, 26.3'
-    dependsOn ':mc120:remapJar', ':mc1211:remapJar', ':mc1214:remapJar', ':mc1215:remapJar', ':mc12111:remapJar', ':mc261:jar', ':mc262:jar', ':mc263:jar', ':mc26x:jar'
+def targets = [
+    '1.20':     [mc: '1.20.4', yarn: '1.20.4+build.3', fabric: '0.97.2+1.20.4', loader: '0.16.10', java: 17, dependency: '>=1.20 <1.21', modMenu: '9.2.0', sources: 'legacy'],
+    '1.20.4':   [mc: '1.20.4', yarn: '1.20.4+build.3', fabric: '0.97.2+1.20.4', loader: '0.16.10', java: 17, dependency: '>=1.20.4 <1.20.5', modMenu: '9.2.0', sources: 'legacy'],
+    '1.21.1':   [mc: '1.21.1', yarn: '1.21.1+build.3', fabric: '0.115.6+1.21.1', loader: '0.16.10', java: 21, dependency: '>=1.21.1 <1.21.2', modMenu: '11.0.5', sources: 'legacy'],
+    '1.21.4':   [mc: '1.21.4', yarn: '1.21.4+build.8', fabric: '0.119.4+1.21.4', loader: '0.16.10', java: 21, dependency: '>=1.21.4 <1.21.5', modMenu: '13.0.4', sources: 'legacy'],
+    '1.21.5':   [mc: '1.21.5', yarn: '1.21.5+build.1', fabric: '0.128.2+1.21.5', loader: '0.16.10', java: 21, dependency: '>=1.21.5 <1.21.6', modMenu: '14.0.2', sources: 'legacy'],
+    '1.21.11':  [mc: '1.21.11', yarn: '1.21.11+build.6', fabric: '0.141.6+1.21.11', loader: '0.19.5', java: 21, dependency: '>=1.21.11 <1.22', modMenu: '17.0.1', sources: 'legacy'],
+    '26.1':     [mc: '26.1.2', fabric: '0.149.1+26.1.2', loader: '0.19.5', java: 25, dependency: '>=26.1 <26.2', modMenu: '18.0.2', sources: 'modern'],
+    '26.2':     [mc: '26.2', fabric: '0.152.0+26.2', loader: '0.19.5', java: 25, dependency: '>=26.2 <26.3', modMenu: '20.0.3', sources: 'modern'],
+    '26.3':     [mc: '26.3', fabric: '0.157.1+26.3', loader: '0.19.5', java: 25, dependency: '>=26.3 <27', modMenu: '21.0.0', sources: 'modern']
+]
+
+def selected = project.findProperty('mcVer')?.toString() ?: '1.21.11'
+def target = targets[selected]
+if (target == null) throw new GradleException("Unsupported mcVer '${selected}'. Targets: ${targets.keySet().join(', ')}")
+def mcVer = target.mc
+def rawModVersion = project.findProperty('mod_version')?.toString() ?: '2.1.0'
+def modVersion = rawModVersion.replace('{mc_version}', mcVer)
+def targetBuildDir = project.findProperty('targetBuildDir')?.toString()
+def isModern = target.sources == 'modern'
+
+apply plugin: isModern ? 'net.fabricmc.fabric-loom' : 'fabric-loom'
+
+group = findProperty('maven_group') ?: 'net.map6b6t'
+version = modVersion
+base { archivesName = "map6b6t-${selected}" }
+if (targetBuildDir) layout.buildDirectory.set(file(targetBuildDir))
+
+repositories {
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    mavenCentral()
 }
 
-tasks.register('copyWebsiteJars') {
-    group = 'build'
-    dependsOn 'jars'
-    doLast {
-        def dest = file("${rootDir}/../Server/Website/mods")
-        dest.mkdirs()
-        copy {
-            from project(':mc1204').tasks.named('remapJar').get().archiveFile
-            from project(':mc12111').tasks.named('remapJar').get().archiveFile
-            from project(':mc26x').tasks.named('jar').get().archiveFile
-            into dest
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVer}"
+    if (!isModern) mappings "net.fabricmc:yarn:${target.yarn}:v2"
+    if (isModern) compileOnly("com.terraformersmc:modmenu:${target.modMenu}") { transitive = false }
+    else modCompileOnly("com.terraformersmc:modmenu:${target.modMenu}") { transitive = false }
+    if (isModern) {
+        implementation "net.fabricmc:fabric-loader:${target.loader}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${target.fabric}"
+    } else {
+        modImplementation "net.fabricmc:fabric-loader:${target.loader}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${target.fabric}"
+    }
+}
+
+sourceSets {
+    main {
+        java.setSrcDirs([isModern ? 'src/versionAdapters/26x' : 'src/main/java'])
+        if (selected in ['26.2', '26.3']) {
+            java.srcDir 'src/versionAdapters/26.2plus'
+            java.exclude 'net/map6b6t/gui/VoidHudOverlay.java'
+        }
+        if (selected == '26.3') {
+            java.srcDir 'src/versionAdapters/26.3plus'
+            java.exclude 'net/map6b6t/gui/VoidHudOverlay262.java'
+        }
+        if (selected in ['1.20', '1.20.4']) {
+            java.srcDir 'src/versionAdapters/1.20x/java'
+        }
+        if (selected in ['1.20', '1.20.4', '1.21.1', '1.21.4']) {
+            java.srcDir 'src/versionAdapters/pre1215/java'
+        }
+        if (selected in ['1.21.1', '1.21.4']) {
+            java.srcDir 'src/versionAdapters/1.21x/java'
+        }
+        if (selected == '1.21.5') java.srcDir 'src/versionAdapters/1.21.5x/java'
+        if (!isModern && selected == '1.21.11') {
+            java.srcDir 'src/versionAdapters/1.21.11/java'
+            java.exclude 'net/map6b6t/gui/HudEditorScreen.java'
+        }
+        resources.setSrcDirs(['src/main/resources'])
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(target.java)
+    targetCompatibility = JavaVersion.toVersion(target.java)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = target.java
+}
+
+processResources {
+    inputs.properties(version: project.version, minecraft_dependency: target.dependency, java_version: target.java)
+    filesMatching('fabric.mod.json') {
+        expand(version: project.version, minecraft_dependency: target.dependency, java_version: target.java)
+    }
+}
+
+loom {
+    runs {
+        client {
+            client()
+            setConfigName("Client ${mcVer}")
+            ideConfigGenerated(true)
+            runDir('run')
         }
     }
 }
 
-tasks.register('jar') {
-    group = 'build'
-    dependsOn 'jars'
+def buildTasks = []
+targets.each { targetVersion, config ->
+    def taskName = "build${targetVersion.replace('.', '_')}"
+    def task = tasks.register(taskName, Exec) {
+        group = 'build versions'
+        description = "Build the 6b6t Map mod for Minecraft ${targetVersion}"
+        workingDir rootDir
+        def childArgs = [
+            'build', "-PmcVer=${targetVersion}", "-Pmod_version=${rawModVersion}",
+            "-PtargetBuildDir=build/versions/${targetVersion}"
+        ]
+        if (System.getProperty('os.name').toLowerCase().contains('win')) {
+            executable 'cmd'
+            args(['/c', 'gradlew.bat'] + childArgs)
+        } else {
+            executable 'bash'
+            args([file('gradlew').absolutePath] + childArgs)
+        }
+        doFirst { println "Building 6b6t Map for Minecraft ${targetVersion}..." }
+    }
+    buildTasks << task
 }
 
-tasks.register('runClient') {
-    group = 'fabric'
-    description = 'Runs Minecraft client (defaults to 1.21.11)'
-    dependsOn ':mc12111:runClient'
+for (int i = 1; i < buildTasks.size(); i++) {
+    def currentBuild = buildTasks[i]
+    def previousBuild = buildTasks[i - 1]
+    currentBuild.configure { mustRunAfter(previousBuild) }
+}
+
+tasks.register('buildall') {
+    group = 'build versions'
+    description = 'Build every supported Minecraft version sequentially'
+    dependsOn buildTasks
+}
+tasks.register('buildAll') { group = 'build versions'; dependsOn 'buildall' }
+tasks.register('jars') { group = 'build'; dependsOn 'buildall' }
+
+tasks.register('copyWebsiteJars') {
+    group = 'build'
+    dependsOn 'build1_20_4', 'build1_21_11', 'build26_3'
+    doLast {
+        def dest = file('../Server/Website/mods')
+        dest.mkdirs()
+        copy {
+            from 'build/versions/1.20.4/libs', 'build/versions/1.21.11/libs', 'build/versions/26.3/libs'
+            include '*.jar'
+            into dest
+        }
+    }
 }

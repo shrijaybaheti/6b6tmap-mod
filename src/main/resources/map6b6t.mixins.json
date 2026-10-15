@@ -2,7 +2,7 @@
   "required": true,
   "package": "net.map6b6t.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["ClientPlayNetworkHandlerMixin",],
+  "mixins": ["ClientPlayNetworkHandlerMixin", "PlayerUploadNametagMixin"],
   "client": [
     ],
   "injectors": {

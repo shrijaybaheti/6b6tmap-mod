@@ -2,14 +2,24 @@ package net.map6b6t.config;
 
 public class ModConfig {
     public static final int DEFAULT_SPAWN_RADIUS = 25000;
+    public static final int MAX_AREA_DIAMETER = 60_000_000;
 
     public boolean enabled = true;
     public String serverUrl = "http://map.6b6t.store/api/chunks/submit";
     public String submitToken = "666819bad6cb7f54d19fae78719b3c4b003699b8cc4b3892";
-    public String playerOverride = "";
     public int spawnRadius = DEFAULT_SPAWN_RADIUS;
     public boolean recordWorld = false;
     public boolean showHud = true;
+    public boolean showMinimap = false;
+    public boolean showVoidHud = false;
+    public boolean showNametagHud = false;
+    public int statusHudX = 8;
+    public int statusHudY = 8;
+    public int statusHudScale = 100;
+    public int minimapHudX = -1;
+    public int minimapHudY = 8;
+    public int minimapHudSize = 256;
+    public int voidHudSize = 16;
     public int scanIntervalTicks = 2;
 
     public boolean isLocalServerUrl() {
@@ -37,6 +47,12 @@ public class ModConfig {
         spawnRadius = Math.max(16, radius);
     }
 
+    public boolean setAreaDiameter(long diameter) {
+        if (diameter < 32 || diameter > MAX_AREA_DIAMETER) return false;
+        setSpawnRadius((int) (diameter / 2));
+        return true;
+    }
+
     public void setRecordWorld(boolean enabled) {
         recordWorld = enabled;
         if (!enabled && spawnRadius <= 0) {
@@ -48,7 +64,7 @@ public class ModConfig {
         if (recordWorld) {
             return "whole world";
         }
-        return "spawn " + spawnRadius + " blocks";
+        return "±" + String.format(java.util.Locale.ROOT, "%,d", spawnRadius) + " from (0,0)";
     }
 
     public boolean isWithinSpawn(int blockX, int blockZ) {
