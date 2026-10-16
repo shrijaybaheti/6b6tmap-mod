@@ -71,8 +71,7 @@ public class ModConfig {
         if (recordWorld) {
             return true;
         }
-        long r = spawnRadius;
-        return (long) blockX * blockX + (long) blockZ * blockZ <= r * r;
+        return Math.abs((long) blockX) <= spawnRadius && Math.abs((long) blockZ) <= spawnRadius;
     }
 
     public boolean isChunkWithinSpawn(int chunkX, int chunkZ) {

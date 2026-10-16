@@ -18,7 +18,7 @@ All commands start with `/6b6tmap`:
 - `/6b6tmap status` - Show scanning status, queue metrics, tracked chunk count, and server info
 - `/6b6tmap hud <status|map|void|nametag>` - Toggle specific HUD elements
 - `/6b6tmap hud edit` - Open the visual HUD repositioning editor
-- `/6b6tmap area <diameter>` - Set circular recording diameter around spawn (32 to 60,000,000 blocks)
+- `/6b6tmap area <diameter>` - Set square recording boundary centered at (0, 0) with side length <diameter> (32 to 60,000,000 blocks)
 - `/6b6tmap area world` - Record all visited chunks across the entire world
 - `/6b6tmap server <url>` - Set the submission backend URL (default: `http://map.6b6t.store/api/chunks/submit`)
 - `/6b6tmap token <token>` - Set the authorization token for chunk submissions
