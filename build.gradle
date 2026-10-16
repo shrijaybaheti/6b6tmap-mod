@@ -19,7 +19,7 @@ def selected = project.findProperty('mcVer')?.toString() ?: '1.21.11'
 def target = targets[selected]
 if (target == null) throw new GradleException("Unsupported mcVer '${selected}'. Targets: ${targets.keySet().join(', ')}")
 def mcVer = target.mc
-def rawModVersion = project.findProperty('mod_version')?.toString() ?: '2.1.0'
+def rawModVersion = project.findProperty('mod_version')?.toString() ?: '0.1.0'
 def modVersion = rawModVersion.replace('{mc_version}', mcVer)
 def targetBuildDir = project.findProperty('targetBuildDir')?.toString()
 def isModern = target.sources == 'modern'
