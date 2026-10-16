@@ -303,7 +303,22 @@ public class SpawnMapMod implements ClientModInitializer {
             "simpleanarchy.org", "simpleanarchy.net"
     );
 
+    private static boolean isHardDifficulty(MinecraftClient client) {
+        if (client.world == null) return false;
+        try {
+            return client.world.getDifficulty() == net.minecraft.world.Difficulty.HARD;
+        } catch (Exception ignored) {
+            try {
+                Object diff = client.world.getClass().getMethod("getDifficulty").invoke(client.world);
+                return diff != null && "HARD".equalsIgnoreCase(diff.toString());
+            } catch (Exception e) {
+                return false;
+            }
+        }
+    }
+
     private static boolean is6b6tServer(MinecraftClient client) {
+        if (!isHardDifficulty(client)) return false;
         if (client.getCurrentServerEntry() == null) return false;
         String addr = client.getCurrentServerEntry().address;
         if (addr == null || addr.isBlank()) return false;
