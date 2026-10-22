@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class UploadService {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final UploadService INSTANCE = new UploadService();
-    private static final int WORKERS = 4;
+    private static final int WORKERS = 2;
     private static final long STATS_EVERY_MS = 15_000L;
     private static final long UPLOAD_COOLDOWN_NANOS = TimeUnit.MINUTES.toNanos(10);
 
@@ -179,7 +179,8 @@ public final class UploadService {
                 try {
                     String safePlayer = (playerName != null && !playerName.trim().isEmpty()) ? playerName.trim() : "Player";
                     String safeVer = (serverVersion != null && !serverVersion.trim().isEmpty()) ? serverVersion.trim() : "1.21.1";
-                    StringBuilder sb = new StringBuilder(rawBytes.length * 4 + 400);
+                    String base64Data = java.util.Base64.getEncoder().encodeToString(rawBytes);
+                    StringBuilder sb = new StringBuilder(base64Data.length() + 300);
                     sb.append("{\"chunkX\":").append(chunkX)
                       .append(",\"chunkZ\":").append(chunkZ)
                       .append(",\"player\":\"").append(safePlayer).append("\"")
@@ -188,12 +189,7 @@ public final class UploadService {
                       .append(",\"dimension\":\"").append(dimension != null ? dimension : "minecraft:overworld").append("\"")
                       .append(",\"minY\":").append(minY)
                       .append(",\"worldHeight\":").append(worldHeight)
-                      .append(",\"rawPacketBuffer\":[");
-                    for (int i = 0; i < rawBytes.length; i++) {
-                        if (i > 0) sb.append(',');
-                        sb.append(rawBytes[i] & 0xFF);
-                    }
-                    sb.append("]}");
+                      .append(",\"rawPacketData\":\"").append(base64Data).append("\"}");
 
                     byte[] jsonBytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
                     java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(jsonBytes.length / 2);
