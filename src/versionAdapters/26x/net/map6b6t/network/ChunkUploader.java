@@ -100,10 +100,9 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             }
             dos.flush();
             byte[] rawPayload = baos.toByteArray();
-            byte[] compressedPayload = gzip(rawPayload);
             String playerName = jobs.isEmpty() ? "binary" : jobs.get(0).playerName;
             String dimension = jobs.isEmpty() ? "minecraft:overworld" : jobs.get(0).dimension;
-            return httpPost(url, compressedPayload, "application/octet-stream", "gzip", playerName, dimension);
+            return httpPost(url, rawPayload, "application/octet-stream", null, playerName, dimension);
         } catch (Exception e) {
             return UploadResult.network(e);
         }
