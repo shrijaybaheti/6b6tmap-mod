@@ -7,25 +7,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 final class UploadWorker implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
     private static final int MAX_BATCH = 25;
-    private static final int MAX_CONCURRENT_TRANSMISSIONS = 8;
-    private static final int MAX_ATTEMPTS = 3;
-    private static final long RETRY_WAIT_MS = 60_000L;
-
-    private static final ExecutorService TRANSMISSION_POOL = Executors.newFixedThreadPool(MAX_CONCURRENT_TRANSMISSIONS, r -> {
-        Thread t = new Thread(r, "6b6tmap-async-uploader");
-        t.setDaemon(true);
-        return t;
-    });
-
-    private static final Semaphore IN_FLIGHT_SEMAPHORE = new Semaphore(MAX_CONCURRENT_TRANSMISSIONS);
 
     private final UploadQueue queue;
     private final ChunkUploader uploader;
@@ -43,32 +28,21 @@ final class UploadWorker implements Runnable {
     public void run() {
         while (service.isRunning() && !Thread.currentThread().isInterrupted()) {
             try {
-                if (!IN_FLIGHT_SEMAPHORE.tryAcquire(250, TimeUnit.MILLISECONDS)) {
-                    continue;
-                }
-
                 ChunkSubmission first = queue.take(250);
                 if (first == null) {
-                    IN_FLIGHT_SEMAPHORE.release();
                     continue;
                 }
-
                 List<ChunkSubmission> batch = collectBatch(first);
                 stats.setUploading(queue.uploadingCount());
                 stats.setQueueSize(queue.size());
 
-                TRANSMISSION_POOL.execute(() -> {
-                    try {
-                        UploadResult result = uploader.sendBatchRaw(batch);
-                        handleResult(batch, result);
-                    } catch (Throwable t) {
-                        LOGGER.warn("Async transmission error: {}", t.toString());
-                        handleResult(batch, UploadResult.network(t));
-                    } finally {
-                        IN_FLIGHT_SEMAPHORE.release();
-                    }
-                });
+                UploadResult result = uploader.sendBatchRaw(batch);
 
+                if (result.batchNotSupported) {
+                    LOGGER.warn("Server does not support binary batch_raw!");
+                }
+
+                handleResult(batch, result);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -100,6 +74,15 @@ final class UploadWorker implements Runnable {
         return batch;
     }
 
+    private UploadResult sendEach(List<ChunkSubmission> jobs) {
+        UploadResult last = UploadResult.ok(0);
+        for (ChunkSubmission job : jobs) {
+            last = uploader.sendSingle(job);
+            handleResult(List.of(job), last);
+        }
+        return last;
+    }
+
     private void handleResult(List<ChunkSubmission> jobs, UploadResult result) {
         if (result.items != null && !result.items.isEmpty()) {
             long per = jobs.isEmpty() ? 0 : result.bytesSent / jobs.size();
@@ -113,8 +96,8 @@ final class UploadWorker implements Runnable {
                     service.notifyUploaded(job);
                     continue;
                 }
-                if (item.retryable && job.attempts() < MAX_ATTEMPTS) {
-                    job.markRetry(now + RETRY_WAIT_MS);
+                if (item.retryable) {
+                    job.markRetry(now + RetryPolicy.delayMs(job.attempts() + 1, result.retryAfter));
                     queue.requeue(job);
                     stats.markRetried();
                     stats.setLastError(item.error);
@@ -122,7 +105,7 @@ final class UploadWorker implements Runnable {
                     queue.complete(job);
                     DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                     stats.markFailed(item.error);
-                    LOGGER.warn("Dropping chunk {},{} after failure: {}", job.chunkX, job.chunkZ, item.error);
+                    LOGGER.warn("Dropping chunk {},{} after non-retryable failure: {}", job.chunkX, job.chunkZ, item.error);
                 }
             }
             stats.setUploading(queue.uploadingCount());
@@ -146,15 +129,16 @@ final class UploadWorker implements Runnable {
         stats.setLastError(result.error);
         long now = System.currentTimeMillis();
         for (ChunkSubmission job : jobs) {
-            if (result.retryable && job.attempts() < MAX_ATTEMPTS) {
-                job.markRetry(now + RETRY_WAIT_MS);
+            if (result.retryable) {
+                long delay = RetryPolicy.delayMs(job.attempts() + 1, result.retryAfter);
+                job.markRetry(now + delay);
                 queue.requeue(job);
                 stats.markRetried();
             } else {
                 queue.complete(job);
                 DiskCache.delete(job.dimension, job.chunkX, job.chunkZ);
                 stats.markFailed(result.error);
-                LOGGER.warn("Dropping chunk {},{} after failure: {}", job.chunkX, job.chunkZ, result.error);
+                LOGGER.warn("Dropping chunk {},{} after non-retryable failure: {}", job.chunkX, job.chunkZ, result.error);
             }
         }
         stats.setUploading(queue.uploadingCount());
