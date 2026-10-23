@@ -20,8 +20,8 @@ import java.util.zip.GZIPOutputStream;
 
 final class ChunkUploader { private static final ThreadLocal<java.util.Map<String, Integer>> PALETTE_MAP = ThreadLocal.withInitial(java.util.HashMap::new); private static final ThreadLocal<java.util.List<String>> PALETTE_LIST = ThreadLocal.withInitial(java.util.ArrayList::new); private static final ThreadLocal<int[]> ENCODE_BUFFER = ThreadLocal.withInitial(() -> new int[131072]); private static final ThreadLocal<java.nio.ByteBuffer> BYTE_BUFFER = ThreadLocal.withInitial(() -> java.nio.ByteBuffer.allocate(1048576).order(java.nio.ByteOrder.LITTLE_ENDIAN));
     private static final int GZIP_AFTER_BYTES = 256;
-    private static final int CONNECT_TIMEOUT_MS = 15000;
-    private static final int READ_TIMEOUT_MS = 8000;
+    private static final int CONNECT_TIMEOUT_MS = 20000;
+    private static final int READ_TIMEOUT_MS = 25000;
 
     ChunkUploader() {
     }
