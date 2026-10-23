@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 
 final class UploadWorker implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
-    private static final int MAX_BATCH = 25;
-    private static final int MAX_CONCURRENT_TRANSMISSIONS = 2;
+    private static final int MAX_BATCH = 64;
+    private static final int MAX_CONCURRENT_TRANSMISSIONS = 4;
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_WAIT_MS = 60_000L;
 
