@@ -100,9 +100,10 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             }
             dos.flush();
             byte[] rawPayload = baos.toByteArray();
+            byte[] compressed = gzipFast(rawPayload);
             String playerName = jobs.isEmpty() ? "binary" : jobs.get(0).playerName;
             String dimension = jobs.isEmpty() ? "minecraft:overworld" : jobs.get(0).dimension;
-            return httpPost(url, rawPayload, "application/octet-stream", null, playerName, dimension);
+            return httpPost(url, compressed, "application/octet-stream", "gzip", playerName, dimension);
         } catch (Exception e) {
             return UploadResult.network(e);
         }
@@ -290,11 +291,22 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    public static byte[] gzip(byte[] input) throws IOException {
+    public static byte[] gzipFast(byte[] input) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, input.length / 4));
-        try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+        GZIPOutputStream gzip = new GZIPOutputStream(out) {
+            {
+                def.setLevel(java.util.zip.Deflater.BEST_SPEED);
+            }
+        };
+        try {
             gzip.write(input);
+        } finally {
+            gzip.close();
         }
         return out.toByteArray();
+    }
+
+    public static byte[] gzip(byte[] input) throws IOException {
+        return gzipFast(input);
     }
 }
