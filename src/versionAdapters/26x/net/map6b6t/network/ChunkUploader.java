@@ -265,7 +265,17 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
             buf.putInt(encodedBlocks[i]);
         }
         
-        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(2048); try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos)) { gos.write(buf.array(), 0, capacity); } catch (java.io.IOException e) { return new byte[0]; } return bos.toByteArray();
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(2048);
+        try (java.util.zip.GZIPOutputStream gos = new java.util.zip.GZIPOutputStream(bos) {
+            {
+                def.setLevel(java.util.zip.Deflater.BEST_SPEED);
+            }
+        }) {
+            gos.write(buf.array(), 0, capacity);
+        } catch (java.io.IOException e) {
+            return new byte[0];
+        }
+        return bos.toByteArray();
     }
 
     private static String unzipToString(byte[] gzipBytes) throws IOException {

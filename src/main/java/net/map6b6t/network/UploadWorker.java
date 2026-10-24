@@ -79,6 +79,8 @@ final class UploadWorker implements Runnable {
         }
     }
 
+    private static final long AGGREGATION_WINDOW_MS = 1000L;
+
     private List<ChunkSubmission> collectBatch(ChunkSubmission first) {
         List<ChunkSubmission> batch = new ArrayList<>(MAX_BATCH);
         batch.add(first);
@@ -87,10 +89,23 @@ final class UploadWorker implements Runnable {
         }
         Set<ChunkSubmission.Key> seen = new HashSet<>();
         seen.add(first.key);
+        long deadline = System.currentTimeMillis() + AGGREGATION_WINDOW_MS;
         while (batch.size() < MAX_BATCH) {
             ChunkSubmission extra = queue.tryTakeDue();
             if (extra == null) {
-                break;
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    break;
+                }
+                try {
+                    extra = queue.take(Math.min(remaining, 100L));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                if (extra == null) {
+                    continue;
+                }
             }
             if (!seen.add(extra.key)) {
                 queue.returnToQueue(extra);
