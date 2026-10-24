@@ -28,9 +28,9 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
 
     private static UploadResult httpPost(String url, byte[] body, String contentType, String contentEncoding, String playerName, String dimension) {
         HttpURLConnection conn = null;
-        java.net.Proxy proxy = java.net.Proxy.NO_PROXY;
+        
         try {
-            conn = (HttpURLConnection) new URL(url).openConnection(proxy);
+            conn = (HttpURLConnection) new URL(url).openConnection();
             conn.setRequestMethod("POST");
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);

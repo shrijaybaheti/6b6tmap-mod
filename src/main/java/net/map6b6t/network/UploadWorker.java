@@ -14,10 +14,10 @@ import java.util.concurrent.TimeUnit;
 
 final class UploadWorker implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger("6b6tMap");
-    private static final int MAX_BATCH = 64;
-    private static final int MAX_CONCURRENT_TRANSMISSIONS = 4;
+    private static final int MAX_BATCH = 32;
+    private static final int MAX_CONCURRENT_TRANSMISSIONS = 2;
     private static final int MAX_ATTEMPTS = 3;
-    private static final long RETRY_WAIT_MS = 60_000L;
+    private static final long RETRY_WAIT_MS = 15_000L;
 
     private static final ExecutorService TRANSMISSION_POOL = Executors.newFixedThreadPool(MAX_CONCURRENT_TRANSMISSIONS, r -> {
         Thread t = new Thread(r, "6b6tmap-async-uploader");
