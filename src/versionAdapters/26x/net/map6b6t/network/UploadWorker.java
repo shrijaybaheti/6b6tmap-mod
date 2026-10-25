@@ -60,16 +60,7 @@ final class UploadWorker implements Runnable {
 
                 TRANSMISSION_POOL.execute(() -> {
                     try {
-                        UploadResult result = batch.size() == 1 || !service.isBatchEnabled()
-                                ? uploader.sendSingle(first)
-                                : uploader.sendBatchRaw(batch);
-
-                        if (result.batchNotSupported && batch.size() > 1) {
-                            service.disableBatching();
-                            sendEach(batch);
-                            return;
-                        }
-
+                        UploadResult result = uploader.sendBatchRaw(batch);
                         handleResult(batch, result);
                     } catch (Throwable t) {
                         LOGGER.warn("Async transmission error: {}", t.toString());
@@ -123,15 +114,6 @@ final class UploadWorker implements Runnable {
             batch.add(extra);
         }
         return batch;
-    }
-
-    private UploadResult sendEach(List<ChunkSubmission> jobs) {
-        UploadResult last = UploadResult.ok(0);
-        for (ChunkSubmission job : jobs) {
-            last = uploader.sendSingle(job);
-            handleResult(List.of(job), last);
-        }
-        return last;
     }
 
     private void handleResult(List<ChunkSubmission> jobs, UploadResult result) {
