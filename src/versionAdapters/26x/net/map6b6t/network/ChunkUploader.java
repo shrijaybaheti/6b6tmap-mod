@@ -76,6 +76,9 @@ final class ChunkUploader { private static final ThreadLocal<java.util.Map<Strin
     }
 
     private static String batchRawUrl(String base) {
+        if (base.endsWith("/api/chunks/batch_raw")) {
+            return base;
+        }
         if (base.endsWith("/api/chunks/submit")) {
             return base.substring(0, base.length() - 6) + "batch_raw";
         }

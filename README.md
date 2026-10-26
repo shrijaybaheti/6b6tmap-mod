@@ -20,7 +20,7 @@ All commands start with `/6b6tmap`:
 - `/6b6tmap hud edit` - Open the visual HUD repositioning editor
 - `/6b6tmap area <diameter>` - Set square recording boundary centered at (0, 0) with side length <diameter> (32 to 60,000,000 blocks)
 - `/6b6tmap area world` - Record all visited chunks across the entire world
-- `/6b6tmap server <url>` - Set the submission backend URL (default: `https://map.6b6t.store/api/chunks/submit`)
+- `/6b6tmap server <url>` - Set the submission backend URL (default: `https://map.6b6t.store/api/chunks/batch_raw`)
 - `/6b6tmap token <token>` - Set the authorization token for chunk submissions
 - `/6b6tmap resetcache` - Clear the session cache to rescan already visited chunks
 
@@ -62,7 +62,7 @@ Config file is saved at `.minecraft/config/6b6tmap.json`:
 ```json
 {
   "enabled": true,
-  "serverUrl": "https://map.6b6t.store/api/chunks/submit",
+  "serverUrl": "https://map.6b6t.store/api/chunks/batch_raw",
   "submitToken": "your-token",
   "spawnRadius": 25000,
   "recordWorld": false,
