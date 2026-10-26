@@ -5,7 +5,7 @@ public class ModConfig {
     public static final int MAX_AREA_DIAMETER = 60_000_000;
 
     public boolean enabled = true;
-    public String serverUrl = "http://map.6b6t.store/api/chunks/submit";
+    public String serverUrl = "https://map.6b6t.store/api/chunks/submit";
     public String submitToken = "666819bad6cb7f54d19fae78719b3c4b003699b8cc4b3892";
     public int spawnRadius = DEFAULT_SPAWN_RADIUS;
     public boolean recordWorld = false;
